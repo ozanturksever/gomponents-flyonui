@@ -1,0 +1,896 @@
+﻿Technical Design and Implementation Strategy for gomponents-flyonui
+
+
+
+
+Section 1: Foundational Architecture and Design Philosophy
+
+
+This section establishes the high-level architectural principles governing the library's design. The primary goal is to create a robust, maintainable, and idiomatic Go library that functions seamlessly in both server-side rendering (SSR) and client-side WebAssembly (WASM) environments. The architecture prioritizes type safety, declarative component composition, and a clear separation between component structure and interactive behavior.
+
+
+1.1. The Isomorphic Component Model: A Unified Approach for SSR and WASM
+
+
+The core of the gomponents-flyonui library will be built upon an isomorphic component model. Every UI component, from a simple Button to a complex Navbar, will be represented by a Go struct. This struct is designed to be a single source of truth for a component's structure, regardless of the execution environment.
+
+
+Server-Side Rendering (SSR)
+
+
+In a traditional server-side Go web application, the component structs act as pure, stateless HTML generators. They implement the gomponents.Node interface, which contains a Render(io.Writer) method. When an HTTP request is handled, these components are composed into a tree and their Render methods are called, writing the final HTML string directly to the http.ResponseWriter. This process is highly efficient as it leverages Go's performance for string and I/O operations, delivering a fully-formed static page to the client. This model aligns perfectly with the core purpose of the maragu.dev/gomponents library.1
+
+
+Client-Side Rendering (WASM)
+
+
+In a WebAssembly context, the component model extends beyond static rendering. The initial HTML can be rendered either by the server (and sent to the client) or generated directly on the client by a Go function running in WASM. Following this initial render, a process of "hydration" occurs. This client-side process uses the honnef.co/go/js/dom/v2 package to find the rendered DOM elements and attach Go functions as event listeners, effectively breathing interactive life into the static markup.2 This approach avoids the overhead of a virtual DOM, opting instead for direct and precise manipulation of the live browser DOM when state changes occur.
+
+
+Architectural Separation of Structure and Behavior
+
+
+A critical architectural decision is the strict separation of a component's structure from its interactive behavior. The provided willoma/bulma-gomponents library, while an excellent structural reference, handles interactivity by embedding small JavaScript snippets as strings within onclick attributes.4 This approach is not suitable for a rich, dual-mode library for several reasons: it is not type-safe, it is difficult to test, and it fails to leverage the full power of running Go on the client via WASM.
+FlyonUI components, unlike some simpler CSS frameworks, rely heavily on a sophisticated JavaScript layer (PrelineJS) for their interactive features, such as dropdowns, modals, and accordions.5 Replicating this complex JavaScript logic in Go would be a monumental and duplicative effort. Therefore, the architectural approach for
+gomponents-flyonui will be one of interoperability, not reimplementation.
+The component structs themselves will be responsible only for defining the correct HTML structure, CSS classes, and data-* attributes required by FlyonUI's JavaScript. The behavioral aspect—the event handling—will be managed by a separate hydration layer within the WASM binary. This layer will attach Go event handlers that can either execute pure Go logic or call into the existing FlyonUI JavaScript library to trigger its built-in functionality. This separation ensures that the component definitions remain clean, universally applicable to both SSR and WASM, and focused on their primary role: generating valid FlyonUI markup.
+
+
+1.2. The Fluent Builder Pattern: Declarative and Type-Safe Composition
+
+
+To provide a developer-friendly and robust API, the library will adopt the fluent builder pattern, heavily inspired by the With(...) method found in bulma-gomponents.4 This pattern allows for the declarative construction of complex components in a readable and type-safe manner.
+Each component struct will implement a With(children...any) flyon.Component method. This method will iterate through the provided arguments and use a switch statement on their types to determine how they should be applied to the component. This enables intelligent and context-aware component assembly.
+The With method will handle various types of inputs:
+* Component Children: Other objects implementing the flyon.Component interface will be treated as direct children and appended to the component's internal child list.
+* gomponents.Node: Standard attributes and elements from the maragu.dev/gomponents and maragu.dev/gomponents/html packages will be passed through directly to the underlying element structure. This allows for full access to standard HTML attributes like html.ID, html.Class, and event attributes.
+* Go Primitives: Basic Go types, such as string, will be treated as text content and wrapped in gomponents.Text.
+* Type-Safe Modifiers: A key enhancement over simpler implementations is the use of custom Go types to represent CSS modifier classes. Instead of passing raw strings like "btn-primary", developers will use defined constants, such as flyon.Primary. The With method will recognize these types and map them to the correct FlyonUI class strings (btn-primary, btn-lg, etc.).8 This approach, an evolution of the patterns seen in
+bulma-gomponents for colors and sizes 4, provides compile-time safety, prevents typos, and enables IDE autocompletion.
+This pattern can be extended to create a powerful and expressive API contract. By defining interfaces for modifiers (e.g., ButtonModifier, CardModifier), we can enforce at compile time which modifiers are applicable to which components. For instance, a flyon.Primary color type could implement both ButtonModifier and CardModifier, while a flyon.CardSide layout modifier would only implement CardModifier. The Button.With(...) method would be typed to only accept ButtonModifier arguments, thus preventing a developer from nonsensically applying a card-specific layout to a button. This transforms the API from a simple collection of helpers into a guided, self-documenting system for building valid FlyonUI interfaces.
+
+
+1.3. Core Dependencies and Architectural Roles
+
+
+The library's architecture is defined by the clear roles and boundaries of its three core dependencies:
+   * maragu.dev/gomponents: This library is the foundational layer for all HTML generation. Its role is exclusively to define the static structure of components: HTML tags, attributes, and the final class strings. It serves as the universal language for both SSR output and the initial DOM structure rendered by WASM.
+   * honnef.co/go/js/dom/v2: This is the exclusive and authoritative package for all client-side DOM manipulation within the WASM binary. Its stable, higher-level API will be used for querying elements (QuerySelector), modifying classes and attributes, and attaching event listeners (AddEventListener). The decision to use this package over the lower-level, experimental syscall/js is a strategic one, prioritizing API stability, developer ergonomics, and long-term project maintainability.9
+   * FlyonUI/PrelineJS (flyonui.js): The official FlyonUI JavaScript library is treated as an essential third-party dependency. The gomponents-flyonui library will not attempt to replicate its complex internal logic for managing interactive components. Instead, it will interoperate with it by calling its exposed global functions, most notably HSStaticMethods.autoInit(), to delegate the initialization and management of interactive components.7 This establishes a critical architectural boundary, simplifying the responsibilities of our Go library to generating correct markup and wiring up the necessary triggers.
+
+
+Section 2: Component Implementation: From Static to Composite
+
+
+This section provides the concrete implementation details for translating FlyonUI's HTML specifications into reusable, idiomatic Go components. The goal is to establish a consistent and scalable pattern that can be applied across the entire library of over 80 components.
+
+
+2.1. Mapping FlyonUI to Go Packages
+
+
+To ensure a logical and discoverable structure, the project's Go packages will directly mirror the component categories found in the official FlyonUI documentation.5 This approach provides a familiar mental model for developers, allowing them to easily locate the Go implementation of a component they see in the FlyonUI docs. A core
+flyon package will house common interfaces and modifiers that are shared across multiple component types.
+Table 1: Proposed Go Package Structure for gomponents-flyonui
+This table outlines the proposed package structure, providing a high-level architectural map of the library.
+FlyonUI Category
+	Proposed Go Package
+	Description
+	Content
+	flyon/content
+	For text and content display components like Blockquote, List.
+	Components
+	flyon/components
+	For general-purpose UI components like Alert, Card, Badge.
+	Navigations
+	flyon/nav
+	For navigational components like Navbar, Footer, Pagination.
+	Overlays
+	flyon/overlays
+	For interactive overlays like Dropdown, Modal, Tooltip.
+	Forms
+	flyon/forms
+	For all standard and advanced form elements.
+	Tables
+	flyon/tables
+	For data table components.
+	Mockups
+	flyon/mockups
+	For device and window mockup components.
+	Core
+	flyon
+	Root package for common interfaces (Component), modifiers (Primary), and helpers.
+	
+
+2.2. Anatomy of a Simple Component: The Button
+
+
+The Button component serves as the ideal model for implementing simple, largely static elements. The implementation will follow the factory pattern observed in bulma-gomponents 4, adapted for the FlyonUI specification.8
+Struct Definition: The component struct will embed gomponents.Element to inherit its rendering capabilities and provide a place to store attributes and children.
+
+
+Go
+
+
+
+
+// in package flyon/components
+package components
+
+import (
+        "github.com/maragu/gomponents"
+        "github.com/maragu/gomponents/html"
+        "your-module/flyon" // Assuming 'your-module' is the Go module path
+)
+
+// button represents a FlyonUI button component.
+type button struct {
+        gomponents.Element
+}
+
+Constructor Function: A public constructor function provides the entry point for creating a button. It applies the base CSS class required by FlyonUI (btn) and then processes any additional modifiers or children.
+
+
+Go
+
+
+
+
+// Button creates a new button component.
+func Button(children...any) flyon.Component {
+        b := &button{
+                // The base element is a <button> with the essential "btn" class.
+                Element: html.Button(gomponents.Class("btn")),
+        }
+        // The With method is called to apply all provided modifiers and children.
+        b.With(children...)
+        return b
+}
+
+The With Method and Type-Safe Modifiers: The With method is the heart of the component's declarative API. It uses a type switch to handle different kinds of arguments, most notably the custom ButtonModifier interface for type-safe styling.
+
+
+Go
+
+
+
+
+// With applies modifiers and children to the button.
+func (b *button) With(children...any) flyon.Component {
+        for _, child := range children {
+                switch c := child.(type) {
+                case flyon.ButtonModifier:
+                        // If the child is a ButtonModifier, apply it.
+                        c.ModifyButton(b)
+                case gomponents.Node:
+                        // Pass standard gomponents nodes (attributes, elements) directly.
+                        b.Element.With(c)
+                case string:
+                        // Treat strings as text content.
+                        b.Element.With(gomponents.Text(c))
+                // Additional cases for other child types can be added here.
+                }
+        }
+        return b
+}
+
+Modifier Implementation: Modifiers are implemented as types that satisfy the ButtonModifier interface. This pattern ensures that only valid modifiers can be applied to a button.
+
+
+Go
+
+
+
+
+// in package flyon
+package flyon
+
+// ButtonModifier is an interface for any modifier that can be applied to a Button.
+// The 'unexported' interface is a common pattern to make the struct available
+// across package boundaries for interface satisfaction.
+type ButtonModifier interface {
+        ModifyButton(b interface{ With(...any) Component })
+}
+
+// Color represents a semantic color in FlyonUI.
+type Color string
+
+// Constants for all available semantic colors.
+const (
+        Primary   Color = "primary"
+        Secondary Color = "secondary"
+        Accent    Color = "accent"
+        Info      Color = "info"
+        Success   Color = "success"
+        Warning   Color = "warning"
+        Error     Color = "error"
+)
+
+// ModifyButton applies the color class to a button.
+func (c Color) ModifyButton(b interface{ With(...any) Component }) {
+        b.With(gomponents.Class("btn-" + string(c)))
+}
+
+// Size represents a component size modifier.
+type Size string
+
+const (
+   SizeExtraSmall Size = "xs"
+   SizeSmall      Size = "sm"
+   SizeMedium     Size = "md"
+_SizeLarge_      Size = "lg" // Renamed to avoid conflict with `Large` type in `bulma-gomponents`
+   SizeExtraLarge Size = "xl"
+)
+
+// ModifyButton applies the size class to a button.
+func (s Size) ModifyButton(b interface{ With(...any) Component }) {
+   b.With(gomponents.Class("btn-" + string(s)))
+}
+
+This complete example demonstrates a robust, type-safe, and extensible pattern. A developer would use it like this: components.Button(flyon.Primary, flyon.SizeLarge, "Submit"), which is both readable and less error-prone than using raw strings.
+
+
+2.3. Anatomy of a Composite Component: The Card
+
+
+Composite components, like Card, require a more sophisticated internal structure to manage their distinct sections. The implementation will draw heavily on the patterns for composite components in bulma-gomponents 4 while targeting the specific HTML structure required by FlyonUI.11
+Struct Definition: The card struct will contain fields for each logical part of the component, such as the header, body, and actions. These fields will hold gomponents.Nodes.
+
+
+Go
+
+
+
+
+// in package flyon/components
+type card struct {
+        // cardElement is the root <div class="card"> element that holds all attributes.
+        cardElement gomponents.Element
+
+        // Internal fields to store the structured content.
+        header  gomponents.Node
+        body   gomponents.Node // A slice to allow multiple body sections.
+        actions gomponents.Node
+        footer  gomponents.Node
+}
+
+Constructor and With Method with Typed Wrappers: To direct children to the correct part of the card, we will use typed wrapper structs. A developer will wrap their content in components.CardHeader(...) or components.CardBody(...) to ensure it's placed correctly.
+
+
+Go
+
+
+
+
+// Card creates a new card component.
+func Card(children...any) flyon.Component {
+        c := &card{
+                cardElement: html.Div(gomponents.Class("card")),
+        }
+        c.With(children...)
+        return c
+}
+
+// Typed wrappers to direct content within the With method.
+type CardHeaderany
+type CardBodyany
+type CardActionsany
+type CardFooterany
+
+// With routes children to the appropriate card section based on their type.
+func (c *card) With(children...any) flyon.Component {
+        for _, child := range children {
+                switch typedChild := child.(type) {
+                case CardHeader:
+                        // The header is a single element.
+                        c.header = html.Div(gomponents.Class("card-header"), gomponents.Group(typedChild))
+                case CardBody:
+                        // The body can have multiple sections, so we append.
+                        c.body = append(c.body, html.Div(gomponents.Class("card-body"), gomponents.Group(typedChild)))
+                case CardActions:
+                        c.actions = html.Div(gomponents.Class("card-actions"), gomponents.Group(typedChild))
+                case CardFooter:
+                        c.footer = html.Div(gomponents.Class("card-footer"), gomponents.Group(typedChild))
+                case gomponents.Node:
+                        // Apply attributes directly to the root card element.
+                        c.cardElement.With(typedChild)
+                default:
+                        // Untyped children could default to the body or be an error,
+                        // depending on the desired strictness of the API.
+                        // For flexibility, we'll add them to a default body section.
+                        if c.body == nil {
+                                c.body =gomponents.Node{}
+                        }
+                        c.body = append(c.body, html.Div(gomponents.Class("card-body"), child))
+                }
+        }
+        return c
+}
+
+The Render Method: The Render method is responsible for assembling the final, correctly ordered HTML structure from the struct's fields. It clones the base element and appends the structured content before rendering.
+
+
+Go
+
+
+
+
+// Render assembles the card's parts and writes the final HTML.
+func (c *card) Render(w io.Writer) error {
+        // Create a new element to render, preserving the original struct.
+        finalCard := c.cardElement.Clone()
+
+        // Add the parts in the correct order as per FlyonUI's structure.
+        if c.header!= nil {
+                finalCard.With(c.header)
+        }
+        if len(c.body) > 0 {
+                finalCard.With(gomponents.Group(c.body))
+        }
+        if c.actions!= nil {
+                finalCard.With(c.actions)
+        }
+        if c.footer!= nil {
+                finalCard.With(c.footer)
+        }
+
+        return finalCard.Render(w)
+}
+
+This pattern provides a powerful and scalable way to build complex, multi-part components. It remains declarative for the user while encapsulating the structural complexity required by the CSS framework.
+
+
+Section 3: Client-Side Interactivity via WebAssembly
+
+
+This section addresses the most technically demanding aspect of the project: enabling rich, client-side interactivity for components by bridging the gap between the Go WebAssembly runtime and the browser's JavaScript environment. The strategy focuses on leveraging FlyonUI's existing JavaScript engine rather than reimplementing it, using honnef.co/go/js/dom/v2 as the primary interface to the DOM.
+
+
+3.1. WASM Application Lifecycle and Bootstrapping
+
+
+A Go WASM application that needs to handle browser events cannot simply run and exit. It must remain active to listen for and respond to user interactions.
+The Non-Exiting main Function: The entry point for the client-side application will be a main function in a dedicated wasm package. This function will initialize the application and then block indefinitely, typically using an empty channel receive. This ensures the Go scheduler remains running, allowing goroutines spawned by event handlers to execute.13
+
+
+Go
+
+
+
+
+// in wasm/main.go
+package main
+
+func main() {
+   // Perform initial setup and component hydration here.
+   println("gomponents-flyonui WASM module loaded.")
+   hydrate()
+
+   // Block forever to keep the Go runtime alive for event handling.
+   <-make(chan struct{})
+}
+
+func hydrate() {
+   // This function will scan the DOM and attach Go event handlers.
+   // It will also initialize FlyonUI's JS components.
+   //... implementation in section 3.3...
+}
+
+HTML and JavaScript Setup: The WASM binary requires a specific HTML and JavaScript bootstrap process. A standard index.html file will be provided for example applications. This file must include wasm_exec.js, which is supplied by the Go toolchain and provides the necessary JavaScript glue to load and run the Go WASM module. The bootstrap script instantiates the Go object, fetches the .wasm binary, and runs it.14
+
+
+HTML
+
+
+
+
+<html>
+<head>
+   <meta charset="utf-8"/>
+   <script src="wasm_exec.js"></script>
+   <script>
+       const go = new Go();
+       WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+           go.run(result.instance);
+       });
+   </script>
+</head>
+<body>
+   </body>
+</html>
+
+
+
+3.2. The Go-to-JavaScript Interop Bridge
+
+
+A two-tiered interop strategy will be employed. For all standard DOM manipulations, the type-safe, high-level honnef.co/go/js/dom/v2 package is the tool of choice.9 However, FlyonUI's interactivity is managed by a custom, global JavaScript object,
+window.HSStaticMethods, which is part of its PrelineJS dependency.7 Since
+honnef.co/go/js/dom/v2 does not provide a wrapper for this specific object, a small, internal bridge package will be created. This package will use the lower-level syscall/js API, accessed via the .Underlying() method on objects from the dom package 9, to make direct calls to the PrelineJS API. This isolates the "unsafe" or non-standard interop calls, keeping the rest of the library clean and idiomatic.
+
+
+3.2.1. Calling FlyonUI's JavaScript Initializer
+
+
+The most critical interop task is calling HSStaticMethods.autoInit(). This function can be called with an array of strings to initialize specific components (e.g., ['dropdown', 'modal']).7 This requires converting a Go slice of strings into a JavaScript
+Array.
+Go Slice to JavaScript Array Conversion: A helper function will be implemented in the bridge package to perform this conversion. It works by creating a new JavaScript Array object and then iterating through the Go slice to set each index of the JavaScript array.18
+
+
+Go
+
+
+
+
+// in internal/bridge/bridge.go
+package bridge
+
+import "syscall/js"
+
+// GoStringsToJSArray converts a Go string slice to a JavaScript Array.
+func GoStringsToJSArray(itemsstring) js.Value {
+        // Create a new JavaScript Array of the required length.
+        jsArray := js.Global().Get("Array").New(len(items))
+        for i, item := range items {
+                // Set each index of the JS array with the Go string value.
+                jsArray.SetIndex(i, item)
+        }
+        return jsArray
+}
+
+The autoInit Wrapper Function: This function will provide a safe, idiomatic Go interface for calling the global JavaScript function. It performs the necessary type conversion and includes checks to ensure the PrelineJS library has been loaded.
+
+
+Go
+
+
+
+
+// in internal/bridge/bridge.go
+
+// InitializeFlyonComponents calls the global HSStaticMethods.autoInit()
+// with a list of component names to initialize.
+func InitializeFlyonComponents(components...string) {
+        hsStaticMethods := js.Global().Get("HSStaticMethods")
+        if hsStaticMethods.IsUndefined() {
+                // It's crucial to handle the case where the FlyonUI/PrelineJS
+                // script hasn't loaded yet.
+                println("Error: HSStaticMethods not found. Ensure flyonui.js is loaded.")
+                return
+        }
+
+        // If no components are specified, initialize all.
+        if len(components) == 0 {
+                hsStaticMethods.Call("autoInit")
+                return
+        }
+
+        // Convert the Go string slice to a JS Array and make the call.
+        jsComps := GoStringsToJSArray(components)
+        hsStaticMethods.Call("autoInit", jsComps)
+}
+
+
+
+3.2.2. Event Binding and Handling from Go
+
+
+All DOM event handling will be implemented using honnef.co/go/js/dom/v2. Its AddEventListener method provides a safer and more convenient API than the raw js.FuncOf from syscall/js, as it correctly manages the lifecycle of the Go callback function to prevent memory leaks.9
+The standard pattern for event binding will involve querying for an element and then attaching a Go closure as the event listener. This closure has access to the surrounding Go scope, enabling stateful interactions.
+
+
+Go
+
+
+
+
+// Example of attaching a click handler in a component's hydrate function.
+import "honnef.co/go/js/dom/v2"
+
+func hydrateMyComponent() {
+   doc := dom.GetWindow().Document()
+   btn := doc.QuerySelector("#my-interactive-button")
+   if btn == nil {
+       return // Element not found
+   }
+
+   btn.AddEventListener("click", false, func(event dom.Event) {
+       // This is pure Go code executing in the browser on a click event.
+       event.PreventDefault()
+       println("Button was clicked!")
+       
+       // Example of DOM manipulation in response to the event.
+       if p := doc.QuerySelector("#my-paragraph"); p!= nil {
+           p.SetTextContent("The button has been clicked.")
+       }
+   })
+}
+
+This pattern, adapted from dom package examples 21, will be the foundation for all client-side interactivity defined within
+gomponents-flyonui.
+
+
+3.3. End-to-End Implementation of an Interactive Component: Dropdown
+
+
+The Dropdown component serves as a perfect case study for integrating all client-side concepts. Its functionality relies on the PrelineJS engine, which is triggered by specific data-* attributes.22
+Step 1: Go Component Definition (overlays/dropdown.go)
+The Go component will be responsible for generating the complete and correct HTML structure, including a unique ID for the toggle button and the dropdown menu, as well as the necessary data- attributes that the FlyonUI JavaScript expects.
+
+
+Go
+
+
+
+
+// in overlays/dropdown.go
+func Dropdown(toggle gomponents.Node, children...any) flyon.Component {
+   // Generate unique IDs for the toggle and menu
+   toggleID := "flyon-dd-toggle-" + generateRandomID()
+   menuID := "flyon-dd-menu-" + generateRandomID()
+
+   return html.Div(
+       gomponents.Class("dropdown relative inline-flex"),
+       html.Button(
+           html.ID(toggleID),
+           gomponents.Class("dropdown-toggle"),
+           // Essential attributes for PrelineJS and accessibility
+           gomponents.Attr("aria-haspopup", "menu"),
+           gomponents.Attr("aria-expanded", "false"),
+           gomponents.Attr("aria-controls", menuID),
+           gomponents.Attr("data-dropdown-toggle", "#"+menuID), // PrelineJS hook
+           toggle,
+       ),
+       html.Ul(
+           html.ID(menuID),
+           gomponents.Class("dropdown-menu hidden"),
+           //... process children into <li><a>...</a></li>...
+           gomponents.Group(children),
+       ),
+   )
+}
+
+Step 2: WASM Hydration Logic (wasm/hydration.go)
+The hydrate function in the WASM binary will be responsible for finding all dropdowns on the page and ensuring they are initialized by the PrelineJS engine.
+
+
+Go
+
+
+
+
+// in wasm/hydration.go
+import "your-module/internal/bridge"
+
+func hydrate() {
+   // Initialize all dropdowns found on the page.
+   // PrelineJS will find them via their `data-dropdown-toggle` attributes.
+   bridge.InitializeFlyonComponents("dropdown")
+
+   //... call other hydration functions...
+   hydrateCustomLogicForDropdowns()
+}
+
+func hydrateCustomLogicForDropdowns() {
+   // If we wanted to add *additional* Go-based logic, we would do it here.
+   // For example, logging every time any dropdown item is clicked.
+   doc := dom.GetWindow().Document()
+   items := doc.QuerySelectorAll(".dropdown-menu a")
+   for _, item := range items {
+       item.AddEventListener("click", false, func(event dom.Event) {
+           target := event.Target().(dom.Element)
+           println("Dropdown item clicked:", target.TextContent())
+       })
+   }
+}
+
+This end-to-end process demonstrates the architecture's power. The Go component focuses solely on producing valid markup. The WASM hydration step then acts as a bridge, delegating the complex interactive logic to the battle-tested FlyonUI JavaScript library while still allowing for custom, high-performance Go logic to be attached to any element as needed.
+
+
+Section 4: A Rigorous Test-Driven Development Framework
+
+
+A strict Test-Driven Development (TDD) methodology is paramount to ensuring the correctness, reliability, and robustness of the gomponents-flyonui library. The testing framework must be comprehensive, covering both the static HTML generation on the server and the dynamic, interactive behavior in the browser. This will be achieved through a combination of standard Go unit tests and advanced, automated browser testing with chromedp.
+
+
+4.1. Unit Testing for Markup Generation
+
+
+The first layer of testing focuses on verifying the static HTML output of each component. These tests are lightweight, fast, and do not require a browser environment. They are essential for validating the structural correctness of the components, which is the foundation for both SSR and WASM runtimes.
+Methodology:
+Each component will have a corresponding _test.go file. The test functions will instantiate the component with various modifiers and children, render it to an in-memory bytes.Buffer, and then assert that the generated HTML string is correct. For complex components, parsing the HTML string with a library like golang.org/x/net/html can provide more robust assertions against the DOM tree structure, attributes, and content.
+Example Test Case for the Button Component:
+
+
+Go
+
+
+
+
+// in components/button_test.go
+package components_test
+
+import (
+        "bytes"
+        "strings"
+        "testing"
+
+        "github.com/maragu/gomponents"
+        "github.com/maragu/gomponents/html"
+        "your-module/flyon"
+        "your-module/flyon/components"
+)
+
+func TestButton(t *testing.T) {
+        t.Run("it renders a primary button with an ID and text", func(t *testing.T) {
+                // Arrange: Create the component with modifiers and content.
+                b := components.Button(
+                        flyon.Primary,
+                        flyon.SizeLarge,
+                        html.ID("submit-btn"),
+                        "Submit Form",
+                )
+
+                // Act: Render the component to a buffer.
+                var buf bytes.Buffer
+                err := gomponents.Render(&buf, b)
+                if err!= nil {
+                        t.Fatalf("failed to render button: %v", err)
+                }
+                
+                // Assert: Check for the expected HTML output.
+                got := buf.String()
+                expectedClass := `class="btn btn-primary btn-lg"`
+                expectedID := `id="submit-btn"`
+                expectedContent := `>Submit Form</button>`
+
+                if!strings.Contains(got, expectedClass) {
+                        t.Errorf("expected class %q, but got %q", expectedClass, got)
+                }
+                if!strings.Contains(got, expectedID) {
+                        t.Errorf("expected id %q, but got %q", expectedID, got)
+                }
+                if!strings.HasSuffix(got, expectedContent) {
+                        t.Errorf("expected content %q, but got %q", expectedContent, got)
+                }
+        })
+}
+
+
+
+4.2. End-to-End Browser Testing with chromedp and wasmbrowsertest
+
+
+Verifying client-side interactivity requires testing in a real browser environment. The wasmbrowsertest library is the cornerstone of this strategy, as it seamlessly integrates the Go WASM testing process with the go test command, automating the compilation, serving, and execution of tests within a headless Chrome instance.23
+
+
+4.2.1. The Test Harness Setup
+
+
+The development environment will be configured to use wasmbrowsertest. This involves a one-time setup:
+   1. Installation: go install github.com/agnivade/wasmbrowsertest@latest
+   2. Configuration: The installed binary will be renamed to go_js_wasm_exec and placed in the system's $PATH. This specific name is a hook used by the Go toolchain; when go test is run with GOOS=js and GOARCH=wasm, it will automatically execute tests using this binary instead of trying to run the WASM file directly.23
+
+
+4.2.2. SSR Browser Test Case Example
+
+
+While unit tests verify the HTML string, browser tests for SSR confirm that the rendered markup behaves correctly in a live browser (e.g., CSS is applied as expected). These tests will be tagged to run separately from WASM tests.
+Methodology:
+   1. The Go test function will start a lightweight net/http server in a separate goroutine. This server will serve a test page containing the server-rendered component.
+   2. chromedp will be used to launch a browser instance, navigate to the local server's URL, and perform assertions on the rendered DOM.24
+
+
+Go
+
+
+
+
+// in components/card_ssr_test.go
+//go:build ssr_test
+
+func TestCard_SSR(t *testing.T) {
+   // 1. Start a local server serving a page with the Card component.
+   addr := startTestServer(components.Card(...))
+   
+   // 2. Setup chromedp context.
+   ctx, cancel := chromedp.NewContext(context.Background())
+   defer cancel()
+
+   // 3. Run chromedp actions.
+   var titleText string
+   err := chromedp.Run(ctx,
+       chromedp.Navigate(addr),
+       chromedp.Text(`.card-title`, &titleText, chromedp.ByQuery),
+   )
+   if err!= nil {
+       t.Fatalf("chromedp failed: %v", err)
+   }
+
+   // 4. Assert the DOM content.
+   if titleText!= "Expected Title" {
+       t.Errorf("want title %q, got %q", "Expected Title", titleText)
+   }
+}
+
+
+
+4.2.3. WASM Interaction Test Case Example
+
+
+This is the most crucial test type, validating the entire chain from Go component definition to client-side interactivity. These tests will be written as standard Go tests but will be compiled and executed in the browser by wasmbrowsertest.
+Methodology:
+The test function itself will contain the logic that runs inside the browser's WASM environment. It will programmatically render a component into the test page's DOM, trigger the hydration process, simulate a user event, and then assert that the DOM has been updated correctly.
+Example Test Case for an Interactive Dropdown:
+
+
+Go
+
+
+
+
+// in overlays/dropdown_wasm_test.go
+package overlays_test
+
+import (
+        "testing"
+        "time"
+        "honnef.co/go/js/dom/v2"
+        "your-module/internal/bridge"
+        "your-module/overlays"
+)
+
+func TestInteractiveDropdown_WASM(t *testing.T) {
+   // This code runs inside the browser via wasmbrowsertest.
+   doc := dom.GetWindow().Document()
+   body := doc.QuerySelector("body")
+
+   // 1. Render the component into the test page's DOM.
+   // In a real test, we would use gomponents to render this to the body.
+   body.SetInnerHTML(`<div class="dropdown relative inline-flex">
+       <button id="test-toggle" type="button" class="dropdown-toggle" data-dropdown-toggle="#test-menu">Toggle</button>
+       <div id="test-menu" class="dropdown-menu hidden">...</div>
+   </div>`)
+
+   // 2. Hydrate the component by calling the JS initializer.
+   bridge.InitializeFlyonComponents("dropdown")
+
+   // 3. Simulate a user click on the toggle button.
+   toggleButton := doc.QuerySelector("#test-toggle").(dom.HTMLElement)
+   toggleButton.Click()
+
+   // 4. Assert the DOM has changed.
+   // We may need a brief delay to allow PrelineJS's animations/transitions to start.
+   time.Sleep(100 * time.Millisecond)
+
+   menu := doc.QuerySelector("#test-menu")
+   if menu.Class().Contains("hidden") {
+       t.Errorf("dropdown menu should be visible after click, but it still has 'hidden' class")
+   }
+}
+
+This test provides a comprehensive, end-to-end validation of the WASM functionality. It confirms that the Go component generates the correct markup for PrelineJS to detect, that the Go-to-JS bridge correctly initializes the component, and that the component becomes interactive as expected. This robust testing framework is essential for building a reliable and high-quality component library.
+
+
+Section 5: Project Roadmap and Workflow
+
+
+This section outlines a strategic project plan and development workflow to guide the construction of the gomponents-flyonui library. A phased approach, supported by a logical directory structure and standardized build scripts, will ensure an organized and efficient development process.
+
+
+5.1. Proposed Directory Structure
+
+
+A well-defined directory structure is crucial for managing the complexity of a dual-runtime library. The proposed layout separates concerns, making the codebase easier to navigate, build, and test.
+
+
+
+
+
+
+gomponents-flyonui/
+├── flyon/                  # Core package: common interfaces (Component), shared modifiers (Primary, SizeLg).
+├── components/             # Package for general-purpose UI components (card.go, badge.go).
+├── forms/                  # Package for all form-related components.
+├── overlays/               # Package for interactive overlays (dropdown.go, modal.go).
+├── nav/                    # Package for navigational components (navbar.go).
+├──... (other component packages matching the FlyonUI structure)...
+├── internal/
+│   └── bridge/             # Private package for Go-to-JS interop helpers (autoinit.go).
+├── wasm/                   # WASM-specific application logic.
+│   ├── main.go             # The main entry point for the client-side WASM binary.
+│   └── hydration.go        # Logic for hydrating components and attaching event listeners.
+├── examples/
+│   ├── ssr/                # A complete example of a server-side rendered application.
+│   └── wasm/               # A complete example of a client-side WASM application.
+│       └── static/         # Static assets for the WASM example (main.wasm, wasm_exec.js).
+├── test/                   # Assets for browser tests (e.g., HTML templates).
+├── go.mod
+├── go.sum
+└── Makefile                # Build and test automation scripts.
+
+
+
+5.2. Build and Compilation Scripts (Makefile)
+
+
+To streamline common development tasks and ensure consistency, a Makefile will be used. This provides simple, memorable commands for testing, building, and running the various parts of the project.
+
+
+Makefile
+
+
+
+
+.PHONY: test test-ssr test-wasm build-wasm run-ssr-example
+
+# Run all unit tests (excluding browser tests).
+test:
+        go test./...
+
+# Run server-side browser tests using a build tag.
+test-ssr:
+        go test./... -tags=ssr_test
+
+# Run WASM browser tests using wasmbrowsertest (invoked automatically).
+test-wasm:
+        GOOS=js GOARCH=wasm go test./...
+
+# Build the main WASM binary for the example application.
+build-wasm:
+        GOOS=js GOARCH=wasm go build -o examples/wasm/static/main.wasm./wasm
+
+# Run the server-side rendering example application.
+run-ssr-example:
+        go run./examples/ssr/main.go
+
+
+
+5.3. Recommended Implementation Order
+
+
+A phased development approach is recommended to manage complexity and build upon a solid foundation.
+Phase 1: Foundation and Static Components
+   1. Project Setup: Initialize the Go module and create the directory structure and Makefile as outlined above.
+   2. Core Interfaces: Define the core flyon.Component interface and the patterns for type-safe modifiers (e.g., flyon.Color, flyon.Size, and modifier interfaces like ButtonModifier).
+   3. Implement Static Components: Implement 10-15 simple, non-interactive components from the FlyonUI library (e.g., Button, Badge, Blockquote, Typography elements). The development of each component should strictly follow the TDD methodology, with unit tests written first to validate the static HTML output.
+Phase 2: The WASM Bridge and Hydration Layer
+   1. WASM Test Harness: Set up the wasmbrowsertest environment and write a simple "hello world" browser test to confirm the toolchain is working correctly.
+   2. Implement the Bridge: Develop the internal/bridge package. This includes creating and thoroughly unit-testing the GoStringsToJSArray helper and the InitializeFlyonComponents function that calls HSStaticMethods.autoInit().
+   3. Basic Hydration: Create the initial wasm/main.go and wasm/hydration.go files. Implement a basic hydrate function that calls the bridge to initialize all FlyonUI components on a test page.
+Phase 3: Interactive Components
+   1. First Interactive Component (Dropdown): Implement the Dropdown component. This will be the first end-to-end test of the full architecture. Write comprehensive browser tests using wasmbrowsertest to:
+   * Verify that the component renders the correct initial HTML.
+   * Confirm that after hydration, clicking the toggle button correctly triggers the PrelineJS functionality to show the menu.
+   * Add a custom Go event handler to a dropdown item and assert that it fires on click.
+   2. Expand Interactive Component Library: With the pattern for interactive components now established and tested, proceed to implement the remaining interactive components from the Overlays, Forms, and other categories (e.g., Modal, Accordion, Tabs, Collapse). Each new component must be accompanied by a full suite of unit and browser tests.
+Phase 4: Polish, Documentation, and Examples
+   1. Complete Component Coverage: Implement any remaining components from the FlyonUI library.
+   2. API Documentation: Write comprehensive GoDoc comments for all public types, functions, and constants. The documentation should be clear, concise, and provide usage examples.
+   3. Example Applications: Build out the examples/ directory with well-documented, standalone applications for both SSR and WASM. These examples will serve as the primary reference for users of the library.
+   4. README and Contribution Guide: Finalize the project's README.md with installation instructions, usage guides, and a link to the GoDoc. Create a CONTRIBUTING.md to encourage community involvement.
+Works cited
+   1. gomponents, HTML components in pure Go, accessed August 26, 2025, https://www.gomponents.com/
+   2. Learning Golang through WebAssembly - Part 3, Interacting with JavaScript from Go, accessed August 26, 2025, https://www.aaron-powell.com/posts/2019-02-06-golang-wasm-3-interacting-with-js-from-go/
+   3. SwiftlyGo: Declarative WebAssembly UI in Pure Go | by Serge Hulne - Medium, accessed August 26, 2025, https://serge-hulne.medium.com/swiftlygo-declarative-webassembly-ui-in-pure-go-478103663b67
+   4. willoma/bulma-gomponents
+   5. Introduction - FlyonUI, accessed August 26, 2025, https://flyonui.com/docs/getting-started/introduction/
+   6. themeselection/flyonui: The easiest, free and open-source ... - GitHub, accessed August 26, 2025, https://github.com/themeselection/flyonui
+   7. Javascript - FlyonUI, accessed August 26, 2025, https://flyonui.com/docs/getting-started/javascript/
+   8. Tailwind CSS Button - FlyonUI, accessed August 26, 2025, https://flyonui.com/docs/components/button/
+   9. dominikh/go-js-dom - GitHub, accessed August 26, 2025, https://github.com/dominikh/go-js-dom
+   10. Preline JavaScript | Preline UI, crafted with Tailwind CSS, accessed August 26, 2025, https://preline.co/docs/preline-javascript.html
+   11. Tailwind CSS Card - FlyonUI, accessed August 26, 2025, https://flyonui.com/docs/components/card/
+   12. Tailwind Card Component - daisyUI, accessed August 26, 2025, https://daisyui.com/components/card/
+   13. Writing a Frontend Web Framework with WebAssembly And Go | TutorialEdge.net, accessed August 26, 2025, https://tutorialedge.net/golang/writing-frontend-web-framework-webassembly-go/
+   14. Go Wiki: WebAssembly - The Go Programming Language, accessed August 26, 2025, https://go.dev/wiki/WebAssembly
+   15. Get Started With Wasm with go 1.14.2 in 2020 - Matt Boyle, accessed August 26, 2025, https://mattjamesboyle.com/posts/get-started-with-wasm/
+   16. Go and WebAssembly (I): interacting with your browser JS API - macias.info, accessed August 26, 2025, https://macias.info/entry/202003151900_go_wasm_js.md
+   17. dom package - honnef.co/go/js/dom/v2 - Go Packages, accessed August 26, 2025, https://pkg.go.dev/honnef.co/go/js/dom/v2
+   18. js package - syscall/js - Go Packages, accessed August 26, 2025, https://pkg.go.dev/syscall/js
+   19. Interface between Go 1.16 (compiled to WebAssembly) and JavaScript (syscall/js) - BYOC, accessed August 26, 2025, https://blog.claude.nl/posts/interface-between-go-1.16-and-javascript-syscall-js/
+   20. Returning a slice from a Go / wasm js.Func : r/golang - Reddit, accessed August 26, 2025, https://www.reddit.com/r/golang/comments/wtsslc/returning_a_slice_from_a_go_wasm_jsfunc/
+   21. [Golang] GopherJS DOM Example - Event Binding (addEventListener) - Theory and Practice, accessed August 26, 2025, https://siongui.github.io/2016/01/11/gopherjs-dom-example-event-binding-addEventListener/
+   22. Tailwind CSS Dropdown - FlyonUI, accessed August 26, 2025, https://flyonui.com/docs/overlays/dropdown/
+   23. agnivade/wasmbrowsertest: Run WASM tests inside your browser - GitHub, accessed August 26, 2025, https://github.com/agnivade/wasmbrowsertest
+   24. Automated integration tests with chromedp : r/golang - Reddit, accessed August 26, 2025, https://www.reddit.com/r/golang/comments/eforo0/automated_integration_tests_with_chromedp/
+   25. Automating UI Tests in GoLang programming Using ChromeDP | by Pradap Pandiyan, accessed August 26, 2025, https://pradappandiyan.medium.com/automating-ui-tests-in-golang-programming-using-chromedp-52df5b65b37e
