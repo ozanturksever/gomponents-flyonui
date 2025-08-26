@@ -48,7 +48,7 @@ func NewAvatar(children ...g.Node) *AvatarComponent {
 }
 
 // With applies modifiers to the avatar and returns a new instance
-func (a *AvatarComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (a *AvatarComponent) With(modifiers ...any) flyon.Component {
 	newAvatar := &AvatarComponent{
 		classes:    make([]string, len(a.classes)),
 		attributes: make([]g.Node, len(a.attributes)),

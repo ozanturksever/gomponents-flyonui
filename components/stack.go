@@ -28,7 +28,7 @@ func NewStack() *StackComponent {
 }
 
 // With applies modifiers to the stack component and returns a new instance
-func (s *StackComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (s *StackComponent) With(modifiers ...any) flyon.Component {
 	newClasses := make([]string, len(s.classes))
 	copy(newClasses, s.classes)
 

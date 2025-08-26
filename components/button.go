@@ -47,7 +47,7 @@ func NewButton(children ...gomponents.Node) *ButtonComponent {
 }
 
 // With applies modifiers to the button and returns a new instance
-func (b *ButtonComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (b *ButtonComponent) With(modifiers ...any) flyon.Component {
 	// Create a new instance to maintain immutability
 	newBtn := &ButtonComponent{
 		children:   make([]gomponents.Node, len(b.children)),

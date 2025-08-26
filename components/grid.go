@@ -28,7 +28,7 @@ func NewGrid() *GridComponent {
 }
 
 // With applies modifiers to the grid component and returns a new instance
-func (g *GridComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (g *GridComponent) With(modifiers ...any) flyon.Component {
 	newClasses := make([]string, len(g.classes))
 	copy(newClasses, g.classes)
 

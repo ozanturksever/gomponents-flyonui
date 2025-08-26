@@ -18,7 +18,8 @@ type Component interface {
 	gomponents.Node
 	// With applies modifiers to create a new component instance with updated configuration.
 	// This follows the builder pattern and ensures immutability.
-	With(modifiers ...Modifier) Component
+	// Uses any to allow for both Modifier types and other component-specific modifiers.
+	With(modifiers ...any) Component
 }
 
 // Color represents the color variants available in FlyonUI.

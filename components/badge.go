@@ -48,7 +48,7 @@ func NewBadge(children ...g.Node) *BadgeComponent {
 }
 
 // With applies modifiers to the badge and returns a new instance
-func (b *BadgeComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (b *BadgeComponent) With(modifiers ...any) flyon.Component {
 	// Create a new instance to maintain immutability
 	newBadge := &BadgeComponent{
 		children:   make([]g.Node, len(b.children)),

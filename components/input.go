@@ -25,7 +25,7 @@ func NewInput(attributes ...g.Node) *InputComponent {
 }
 
 // With applies modifiers to the input and returns a new instance
-func (i *InputComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (i *InputComponent) With(modifiers ...any) flyon.Component {
 	newInput := &InputComponent{
 		classes:    make([]string, len(i.classes)),
 		attributes: make([]g.Node, len(i.attributes)),

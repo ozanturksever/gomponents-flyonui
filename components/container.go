@@ -28,7 +28,7 @@ func NewContainer() *ContainerComponent {
 }
 
 // With applies modifiers to the container and returns a new instance
-func (c *ContainerComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (c *ContainerComponent) With(modifiers ...any) flyon.Component {
 	newClasses := make([]string, len(c.classes))
 	copy(newClasses, c.classes)
 

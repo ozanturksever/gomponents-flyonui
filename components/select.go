@@ -13,7 +13,7 @@ import (
 type SelectComponent struct {
 	children   []gomponents.Node
 	attributes []gomponents.Node
-	modifiers  []flyon.Modifier
+	modifiers  []any
 }
 
 // NewSelect creates a new select component with the given children (options and attributes)
@@ -38,12 +38,12 @@ func NewSelect(children ...gomponents.Node) *SelectComponent {
 	return &SelectComponent{
 		children:   content,
 		attributes: attributes,
-		modifiers:  []flyon.Modifier{},
+		modifiers:  []any{},
 	}
 }
 
 // With applies modifiers to the select component
-func (s *SelectComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (s *SelectComponent) With(modifiers ...any) flyon.Component {
 	s.modifiers = append(s.modifiers, modifiers...)
 	return s
 }

@@ -28,7 +28,7 @@ func NewFlex() *FlexComponent {
 }
 
 // With applies modifiers to the flex component and returns a new instance
-func (f *FlexComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (f *FlexComponent) With(modifiers ...any) flyon.Component {
 	newClasses := make([]string, len(f.classes))
 	copy(newClasses, f.classes)
 

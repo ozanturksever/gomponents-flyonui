@@ -24,7 +24,7 @@ func NewTextarea(attrs ...gomponents.Node) *TextareaComponent {
 }
 
 // With applies modifiers to the textarea component
-func (t *TextareaComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (t *TextareaComponent) With(modifiers ...any) flyon.Component {
 	// Create a new instance to maintain immutability
 	newTextarea := &TextareaComponent{
 		attributes: make([]gomponents.Node, len(t.attributes)),

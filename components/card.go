@@ -48,7 +48,7 @@ func NewCard(children ...g.Node) *CardComponent {
 }
 
 // With applies modifiers to the card and returns a new instance
-func (c *CardComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (c *CardComponent) With(modifiers ...any) flyon.Component {
 	newCard := &CardComponent{
 		classes:    make([]string, len(c.classes)),
 		attributes: make([]g.Node, len(c.attributes)),

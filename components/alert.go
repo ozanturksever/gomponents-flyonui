@@ -48,7 +48,7 @@ func NewAlert(children ...g.Node) *AlertComponent {
 }
 
 // With applies modifiers to the alert and returns a new instance
-func (a *AlertComponent) With(modifiers ...flyon.Modifier) flyon.Component {
+func (a *AlertComponent) With(modifiers ...any) flyon.Component {
 	newAlert := &AlertComponent{
 		classes:    make([]string, len(a.classes)),
 		attributes: make([]g.Node, len(a.attributes)),
