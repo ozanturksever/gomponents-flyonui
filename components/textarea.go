@@ -2,71 +2,246 @@ package components
 
 import (
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/ozanturksever/gomponents-flyonui/flyon"
 	"maragu.dev/gomponents"
+	g "maragu.dev/gomponents"
 	h "maragu.dev/gomponents/html"
 )
 
 // TextareaComponent represents a textarea form element with FlyonUI styling
 type TextareaComponent struct {
-	attributes []gomponents.Node
-	classes    []string
+	id          string
+	name        string
+	value       string
+	placeholder string
+	rows        int
+	cols        int
+	disabled    bool
+	readonly    bool
+	required    bool
+	color       flyon.Color
+	size        flyon.Size
+	colorSet    bool
+	sizeSet     bool
+	classes     []string
 }
 
 // NewTextarea creates a new textarea component
-func NewTextarea(attrs ...gomponents.Node) *TextareaComponent {
+func NewTextarea() *TextareaComponent {
 	return &TextareaComponent{
-		attributes: attrs,
-		classes:    []string{"textarea"}, // Default FlyonUI textarea class
+		rows:  3,
+		cols:  50,
+		color: flyon.Primary,
+		size:  flyon.SizeMedium,
 	}
+}
+
+// WithID sets the ID attribute
+func (t *TextareaComponent) WithID(id string) *TextareaComponent {
+	new := t.copy()
+	new.id = id
+	return new
+}
+
+// WithName sets the name attribute
+func (t *TextareaComponent) WithName(name string) *TextareaComponent {
+	new := t.copy()
+	new.name = name
+	return new
+}
+
+// WithValue sets the value (content) of the textarea
+func (t *TextareaComponent) WithValue(value string) *TextareaComponent {
+	new := t.copy()
+	new.value = value
+	return new
+}
+
+// WithPlaceholder sets the placeholder text
+func (t *TextareaComponent) WithPlaceholder(placeholder string) *TextareaComponent {
+	new := t.copy()
+	new.placeholder = placeholder
+	return new
+}
+
+// WithRows sets the number of visible text lines
+func (t *TextareaComponent) WithRows(rows int) *TextareaComponent {
+	new := t.copy()
+	new.rows = rows
+	return new
+}
+
+// WithCols sets the visible width of the text control
+func (t *TextareaComponent) WithCols(cols int) *TextareaComponent {
+	new := t.copy()
+	new.cols = cols
+	return new
+}
+
+// WithDisabled sets the disabled state
+func (t *TextareaComponent) WithDisabled(disabled bool) *TextareaComponent {
+	new := t.copy()
+	new.disabled = disabled
+	return new
+}
+
+// WithReadonly sets the readonly state
+func (t *TextareaComponent) WithReadonly(readonly bool) *TextareaComponent {
+	new := t.copy()
+	new.readonly = readonly
+	return new
+}
+
+// WithRequired sets the required state
+func (t *TextareaComponent) WithRequired(required bool) *TextareaComponent {
+	new := t.copy()
+	new.required = required
+	return new
+}
+
+// WithColor sets the color variant
+func (t *TextareaComponent) WithColor(color flyon.Color) *TextareaComponent {
+	new := t.copy()
+	new.color = color
+	new.colorSet = true
+	return new
+}
+
+// WithSize sets the size variant
+func (t *TextareaComponent) WithSize(size flyon.Size) *TextareaComponent {
+	new := t.copy()
+	new.size = size
+	new.sizeSet = true
+	return new
+}
+
+// WithClasses adds additional CSS classes
+func (t *TextareaComponent) WithClasses(classes ...string) *TextareaComponent {
+	new := t.copy()
+	new.classes = append(new.classes, classes...)
+	return new
 }
 
 // With applies modifiers to the textarea component
 func (t *TextareaComponent) With(modifiers ...any) flyon.Component {
-	// Create a new instance to maintain immutability
-	newTextarea := &TextareaComponent{
-		attributes: make([]gomponents.Node, len(t.attributes)),
-		classes:    make([]string, len(t.classes)),
-	}
-	
-	// Copy attributes and classes
-	copy(newTextarea.attributes, t.attributes)
-	copy(newTextarea.classes, t.classes)
+	new := t.copy()
 	
 	// Apply each modifier
 	for _, modifier := range modifiers {
 		switch m := modifier.(type) {
 		case flyon.Color:
-			newTextarea.classes = append(newTextarea.classes, "textarea-"+m.String())
+			new.color = m
+			new.colorSet = true
 		case flyon.Size:
-			newTextarea.classes = append(newTextarea.classes, "textarea-"+m.String())
-		case flyon.Variant:
-			newTextarea.classes = append(newTextarea.classes, "textarea-"+m.String())
+			new.size = m
+			new.sizeSet = true
+		case string:
+			new.classes = append(new.classes, m)
 		}
 	}
 	
-	return newTextarea
+	return new
+}
+
+// copy creates a deep copy of the component
+func (t *TextareaComponent) copy() *TextareaComponent {
+	new := &TextareaComponent{
+		id:          t.id,
+		name:        t.name,
+		value:       t.value,
+		placeholder: t.placeholder,
+		rows:        t.rows,
+		cols:        t.cols,
+		disabled:    t.disabled,
+		readonly:    t.readonly,
+		required:    t.required,
+		color:       t.color,
+		size:        t.size,
+		colorSet:    t.colorSet,
+		sizeSet:     t.sizeSet,
+		classes:     make([]string, len(t.classes)),
+	}
+	copy(new.classes, t.classes)
+	return new
 }
 
 // Render implements the gomponents.Node interface
 func (t *TextareaComponent) Render(w io.Writer) error {
-	// Build the class attribute
-	classAttr := strings.Join(t.classes, " ")
+	// Build CSS classes
+	classes := []string{"textarea"}
 	
-	// Create the textarea element with class and attributes
-	allNodes := make([]gomponents.Node, 0, len(t.attributes)+1)
-	allNodes = append(allNodes, h.Class(classAttr))
-	allNodes = append(allNodes, t.attributes...)
+	// Add color class if explicitly set
+	if t.colorSet {
+		classes = append(classes, "textarea-"+t.color.String())
+	}
 	
-	textareaEl := h.Textarea(allNodes...)
+	// Add size class if explicitly set
+	if t.sizeSet {
+		classes = append(classes, "textarea-"+t.size.String())
+	}
+	
+	// Add additional classes
+	classes = append(classes, t.classes...)
+	
+	// Build attributes
+	attrs := []gomponents.Node{
+		h.Class(strings.Join(classes, " ")),
+	}
+	
+	// Add ID if set
+	if t.id != "" {
+		attrs = append(attrs, g.Attr("id", t.id))
+	}
+	
+	// Add name if set
+	if t.name != "" {
+		attrs = append(attrs, g.Attr("name", t.name))
+	}
+	
+	// Add placeholder if set
+	if t.placeholder != "" {
+		attrs = append(attrs, g.Attr("placeholder", t.placeholder))
+	}
+	
+	// Add rows if set
+	if t.rows > 0 {
+		attrs = append(attrs, g.Attr("rows", strconv.Itoa(t.rows)))
+	}
+	
+	// Add cols if set
+	if t.cols > 0 {
+		attrs = append(attrs, g.Attr("cols", strconv.Itoa(t.cols)))
+	}
+	
+	// Add boolean attributes
+	if t.disabled {
+		attrs = append(attrs, g.Attr("disabled", "disabled"))
+	}
+	
+	if t.readonly {
+		attrs = append(attrs, g.Attr("readonly", "readonly"))
+	}
+	
+	if t.required {
+		attrs = append(attrs, g.Attr("required", "required"))
+	}
+	
+	// Create textarea element with value as content
+	var content gomponents.Node
+	if t.value != "" {
+		content = g.Text(t.value)
+	}
+	
+	textareaEl := h.Textarea(append(attrs, content)...)
 	
 	return textareaEl.Render(w)
 }
 
 // Ensure TextareaComponent implements the required interfaces
 var (
-	_ flyon.Component   = (*TextareaComponent)(nil)
-	_ gomponents.Node   = (*TextareaComponent)(nil)
+	_ flyon.Component = (*TextareaComponent)(nil)
+	_ gomponents.Node = (*TextareaComponent)(nil)
 )

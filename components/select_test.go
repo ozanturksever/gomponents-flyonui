@@ -1,277 +1,308 @@
 package components
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ozanturksever/gomponents-flyonui/flyon"
-	g "maragu.dev/gomponents"
-	h "maragu.dev/gomponents/html"
-	"golang.org/x/net/html"
 )
 
-func TestSelect_BasicRendering(t *testing.T) {
-	t.Run("renders basic select with default classes", func(t *testing.T) {
-		select_ := NewSelect(
-			h.Option(g.Attr("value", "1"), g.Text("Option 1")),
-			h.Option(g.Attr("value", "2"), g.Text("Option 2")),
-		)
-		html := renderToHTML(select_)
-		
-		doc, err := parseHTML(html)
-		if err != nil {
-			t.Fatalf("Failed to parse HTML: %v", err)
-		}
-		
-		selectEl := findElement(doc, "select")
-		if selectEl == nil {
-			t.Fatal("Expected select element not found")
-		}
-		
-		classAttr := getAttribute(selectEl, "class")
-		if !hasClass(classAttr, "select") {
-			t.Errorf("Expected 'select' class, got classes: %s", classAttr)
-		}
-	})
-
-	t.Run("renders select with options", func(t *testing.T) {
-		select_ := NewSelect(
-			h.Option(g.Attr("value", "apple"), g.Text("Apple")),
-			h.Option(g.Attr("value", "banana"), g.Text("Banana")),
-			h.Option(g.Attr("value", "cherry"), g.Text("Cherry")),
-		)
-		html := renderToHTML(select_)
-		
-		doc, err := parseHTML(html)
-		if err != nil {
-			t.Fatalf("Failed to parse HTML: %v", err)
-		}
-		
-		selectEl := findElement(doc, "select")
-		if selectEl == nil {
-			t.Fatal("Expected select element not found")
-		}
-		
-		// Check that options are present
-		options := findAllElements(selectEl, "option")
-		if len(options) != 3 {
-			t.Errorf("Expected 3 options, got %d", len(options))
-		}
-		
-		// Check first option
-		if value := getAttribute(options[0], "value"); value != "apple" {
-			t.Errorf("Expected first option value='apple', got value='%s'", value)
-		}
-	})
+// renderToStringSelect renders a SelectComponent to a string for testing
+func renderToStringSelect(component *SelectComponent) string {
+	var builder strings.Builder
+	component.Render(&builder)
+	return builder.String()
 }
 
-func TestSelect_ColorModifiers(t *testing.T) {
-	tests := []struct {
-		name          string
-		color         flyon.Color
-		expectedClass string
-	}{
-		{"Primary select", flyon.Primary, "select-primary"},
-		{"Secondary select", flyon.Secondary, "select-secondary"},
-		{"Success select", flyon.Success, "select-success"},
-		{"Warning select", flyon.Warning, "select-warning"},
-		{"Error select", flyon.Error, "select-error"},
-		{"Info select", flyon.Info, "select-info"},
-		{"Neutral select", flyon.Neutral, "select-neutral"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			select_ := NewSelect(h.Option(g.Text("Test"))).With(tt.color)
-			html := renderToHTML(select_)
-			
-			doc, err := parseHTML(html)
-			if err != nil {
-				t.Fatalf("Failed to parse HTML: %v", err)
-			}
-			
-			selectEl := findElement(doc, "select")
-			if selectEl == nil {
-				t.Fatal("Expected select element not found")
-			}
-			
-			classAttr := getAttribute(selectEl, "class")
-			if !hasClass(classAttr, tt.expectedClass) {
-				t.Errorf("Expected '%s' class, got classes: %s", tt.expectedClass, classAttr)
-			}
-		})
+func TestSelectComponent_WithID(t *testing.T) {
+	select1 := NewSelect().WithID("test-id")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `id="test-id"`) {
+		t.Errorf("Expected HTML to contain id='test-id', got: %s", html)
 	}
 }
 
-func TestSelect_SizeModifiers(t *testing.T) {
-	tests := []struct {
-		name          string
-		size          flyon.Size
-		expectedClass string
-	}{
-		{"Extra small select", flyon.SizeXS, "select-xs"},
-		{"Small select", flyon.SizeSmall, "select-sm"},
-		{"Medium select", flyon.SizeMedium, "select-md"},
-		{"Large select", flyon.SizeLarge, "select-lg"},
-		{"Extra large select", flyon.SizeXL, "select-xl"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			select_ := NewSelect(h.Option(g.Text("Test"))).With(tt.size)
-			html := renderToHTML(select_)
-			
-			doc, err := parseHTML(html)
-			if err != nil {
-				t.Fatalf("Failed to parse HTML: %v", err)
-			}
-			
-			selectEl := findElement(doc, "select")
-			if selectEl == nil {
-				t.Fatal("Expected select element not found")
-			}
-			
-			classAttr := getAttribute(selectEl, "class")
-			if !hasClass(classAttr, tt.expectedClass) {
-				t.Errorf("Expected '%s' class, got classes: %s", tt.expectedClass, classAttr)
-			}
-		})
+func TestSelectComponent_WithName(t *testing.T) {
+	select1 := NewSelect().WithName("test-name")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `name="test-name"`) {
+		t.Errorf("Expected HTML to contain name='test-name', got: %s", html)
 	}
 }
 
-func TestSelect_VariantModifiers(t *testing.T) {
-	tests := []struct {
-		name          string
-		variant       flyon.Variant
-		expectedClass string
-	}{
-		{"Solid select", flyon.VariantSolid, "select-solid"},
-		{"Outline select", flyon.VariantOutline, "select-outline"},
-		{"Ghost select", flyon.VariantGhost, "select-ghost"},
-		{"Soft select", flyon.VariantSoft, "select-soft"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			select_ := NewSelect(h.Option(g.Text("Test"))).With(tt.variant)
-			html := renderToHTML(select_)
-			
-			doc, err := parseHTML(html)
-			if err != nil {
-				t.Fatalf("Failed to parse HTML: %v", err)
-			}
-			
-			selectEl := findElement(doc, "select")
-			if selectEl == nil {
-				t.Fatal("Expected select element not found")
-			}
-			
-			classAttr := getAttribute(selectEl, "class")
-			if !hasClass(classAttr, tt.expectedClass) {
-				t.Errorf("Expected '%s' class, got classes: %s", tt.expectedClass, classAttr)
-			}
-		})
+func TestSelectComponent_WithValue(t *testing.T) {
+	select1 := NewSelect().WithValue("test-value")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `value="test-value"`) {
+		t.Errorf("Expected HTML to contain value='test-value', got: %s", html)
 	}
 }
 
-func TestSelect_CombinedModifiers(t *testing.T) {
-	t.Run("combines color, size, and variant modifiers", func(t *testing.T) {
-		select_ := NewSelect(h.Option(g.Text("Test"))).With(flyon.Primary, flyon.SizeLarge, flyon.VariantOutline)
-		html := renderToHTML(select_)
-		
-		doc, err := parseHTML(html)
-		if err != nil {
-			t.Fatalf("Failed to parse HTML: %v", err)
-		}
-		
-		selectEl := findElement(doc, "select")
-		if selectEl == nil {
-			t.Fatal("Expected select element not found")
-		}
-		
-		classAttr := getAttribute(selectEl, "class")
-		expectedClasses := []string{"select", "select-primary", "select-lg", "select-outline"}
-		for _, class := range expectedClasses {
-			if !hasClass(classAttr, class) {
-				t.Errorf("Expected class '%s', got classes: %s", class, classAttr)
-			}
-		}
-	})
-}
-
-func TestSelect_HTMLAttributes(t *testing.T) {
-	t.Run("accepts HTML attributes", func(t *testing.T) {
-		select_ := NewSelect(
-			h.ID("test-select"),
-			h.Disabled(),
-			h.Name("fruits"),
-			h.Option(g.Attr("value", "apple"), g.Text("Apple")),
-		)
-		html := renderToHTML(select_)
-		
-		doc, err := parseHTML(html)
-		if err != nil {
-			t.Fatalf("Failed to parse HTML: %v", err)
-		}
-		
-		selectEl := findElement(doc, "select")
-		if selectEl == nil {
-			t.Fatal("Expected select element not found")
-		}
-		
-		if id := getAttribute(selectEl, "id"); id != "test-select" {
-			t.Errorf("Expected id='test-select', got id='%s'", id)
-		}
-		
-		if !hasAttribute(selectEl, "disabled") {
-			t.Error("Expected disabled attribute to be present")
-		}
-		
-		if name := getAttribute(selectEl, "name"); name != "fruits" {
-			t.Errorf("Expected name='fruits', got name='%s'", name)
-		}
-	})
-}
-
-func TestSelect_ComponentInterface(t *testing.T) {
-	t.Run("implements Component interface", func(t *testing.T) {
-		var _ flyon.Component = (*SelectComponent)(nil)
-		
-		select_ := NewSelect(h.Option(g.Attr("value", "test"), g.Text("Test")))
-		html := renderToHTML(select_)
-		
-		doc, err := parseHTML(html)
-		if err != nil {
-			t.Fatalf("Failed to parse HTML: %v", err)
-		}
-		
-		selectEl := findElement(doc, "select")
-		if selectEl == nil {
-			t.Fatal("Expected select element not found")
-		}
-		
-		option := findElement(selectEl, "option")
-		if option == nil {
-			t.Fatal("Expected option element not found")
-		}
-		
-		if value := getAttribute(option, "value"); value != "test" {
-			t.Errorf("Expected option value='test', got value='%s'", value)
-		}
-	})
-}
-
-// Helper function to find all elements with a specific tag
-func findAllElements(n *html.Node, tag string) []*html.Node {
-	var elements []*html.Node
-	findAllElementsRecursive(n, tag, &elements)
-	return elements
-}
-
-func findAllElementsRecursive(n *html.Node, tag string, elements *[]*html.Node) {
-	if n.Type == html.ElementNode && n.Data == tag {
-		*elements = append(*elements, n)
+func TestSelectComponent_WithDisabled(t *testing.T) {
+	select1 := NewSelect().WithDisabled(true)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "disabled") {
+		t.Errorf("Expected HTML to contain disabled attribute, got: %s", html)
 	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		findAllElementsRecursive(c, tag, elements)
+}
+
+func TestSelectComponent_WithRequired(t *testing.T) {
+	select1 := NewSelect().WithRequired(true)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "required") {
+		t.Errorf("Expected HTML to contain required attribute, got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithMultiple(t *testing.T) {
+	select1 := NewSelect().WithMultiple(true)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "multiple") {
+		t.Errorf("Expected HTML to contain multiple attribute, got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithSize(t *testing.T) {
+	select1 := NewSelect().WithSize(5)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `size="5"`) {
+		t.Errorf("Expected HTML to contain size='5', got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithColor(t *testing.T) {
+	select1 := NewSelect().WithColor(flyon.Secondary)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "select-secondary") {
+		t.Errorf("Expected HTML to contain 'select-secondary' class, got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithCompSize(t *testing.T) {
+	select1 := NewSelect().WithCompSize(flyon.SizeLarge)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "select-lg") {
+		t.Errorf("Expected HTML to contain 'select-lg' class, got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithOption(t *testing.T) {
+	select1 := NewSelect().WithOption("value1", "Label 1")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `<option value="value1">Label 1</option>`) {
+		t.Errorf("Expected HTML to contain option with value='value1' and text 'Label 1', got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithSelectedOption(t *testing.T) {
+	select1 := NewSelect().WithSelectedOption("value1", "Label 1")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `<option value="value1" selected>Label 1</option>`) {
+		t.Errorf("Expected HTML to contain selected option with value='value1' and text 'Label 1', got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithDisabledOption(t *testing.T) {
+	select1 := NewSelect().WithDisabledOption("value1", "Label 1")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `<option value="value1" disabled>Label 1</option>`) {
+		t.Errorf("Expected HTML to contain disabled option with value='value1' and text 'Label 1', got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithOptions(t *testing.T) {
+	options := []SelectOption{
+		{Value: "value1", Label: "Label 1"},
+		{Value: "value2", Label: "Label 2", Selected: true},
+		{Value: "value3", Label: "Label 3", Disabled: true},
+	}
+	
+	select1 := NewSelect().WithOptions(options)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, `<option value="value1">Label 1</option>`) {
+		t.Errorf("Expected HTML to contain first option, got: %s", html)
+	}
+	if !strings.Contains(html, `<option value="value2" selected>Label 2</option>`) {
+		t.Errorf("Expected HTML to contain selected second option, got: %s", html)
+	}
+	if !strings.Contains(html, `<option value="value3" disabled>Label 3</option>`) {
+		t.Errorf("Expected HTML to contain disabled third option, got: %s", html)
+	}
+}
+
+func TestSelectComponent_WithClasses(t *testing.T) {
+	select1 := NewSelect().WithClasses("custom-class", "another-class")
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "custom-class") {
+		t.Errorf("Expected HTML to contain 'custom-class', got: %s", html)
+	}
+	if !strings.Contains(html, "another-class") {
+		t.Errorf("Expected HTML to contain 'another-class', got: %s", html)
+	}
+}
+
+func TestSelectComponent_With(t *testing.T) {
+	select1 := NewSelect().With(flyon.Success, flyon.SizeSmall, "custom-modifier").(*SelectComponent)
+	html := renderToStringSelect(select1)
+	
+	if !strings.Contains(html, "select-success") {
+		t.Errorf("Expected HTML to contain 'select-success' class, got: %s", html)
+	}
+	if !strings.Contains(html, "select-sm") {
+		t.Errorf("Expected HTML to contain 'select-sm' class, got: %s", html)
+	}
+	if !strings.Contains(html, "custom-modifier") {
+		t.Errorf("Expected HTML to contain 'custom-modifier' class, got: %s", html)
+	}
+}
+
+func TestSelectComponent_Render(t *testing.T) {
+	select1 := NewSelect()
+	html := renderToStringSelect(select1)
+	
+	// Check for basic select structure
+	if !strings.Contains(html, "<select") {
+		t.Errorf("Expected HTML to contain <select tag, got: %s", html)
+	}
+	if !strings.Contains(html, "</select>") {
+		t.Errorf("Expected HTML to contain </select> tag, got: %s", html)
+	}
+	if !strings.Contains(html, "select") {
+		t.Errorf("Expected HTML to contain 'select' class, got: %s", html)
+	}
+	if !strings.Contains(html, "select-bordered") {
+		t.Errorf("Expected HTML to contain 'select-bordered' class, got: %s", html)
+	}
+}
+
+func TestSelectComponent_RenderWithAllAttributes(t *testing.T) {
+	select1 := NewSelect().
+		WithID("test-select").
+		WithName("test-name").
+		WithValue("test-value").
+		WithDisabled(true).
+		WithRequired(true).
+		WithMultiple(true).
+		WithSize(3).
+		WithColor(flyon.Secondary).
+		WithCompSize(flyon.SizeLarge).
+		WithOption("opt1", "Option 1").
+		WithSelectedOption("opt2", "Option 2").
+		WithClasses("custom-class")
+	
+	html := renderToStringSelect(select1)
+	
+	// Check all attributes are present
+	expectedAttributes := []string{
+		`id="test-select"`,
+		`name="test-name"`,
+		`value="test-value"`,
+		"disabled",
+		"required",
+		"multiple",
+		`size="3"`,
+		"select-secondary",
+		"select-lg",
+		"custom-class",
+		`<option value="opt1">Option 1</option>`,
+		`<option value="opt2" selected>Option 2</option>`,
+	}
+	
+	for _, attr := range expectedAttributes {
+		if !strings.Contains(html, attr) {
+			t.Errorf("Expected HTML to contain '%s', got: %s", attr, html)
+		}
+	}
+}
+
+func TestSelectComponent_RenderNotDisabled(t *testing.T) {
+	select1 := NewSelect().WithDisabled(false)
+	html := renderToStringSelect(select1)
+	
+	if strings.Contains(html, "disabled") {
+		t.Errorf("Expected HTML to not contain disabled attribute, got: %s", html)
+	}
+}
+
+func TestSelectComponent_RenderNotRequired(t *testing.T) {
+	select1 := NewSelect().WithRequired(false)
+	html := renderToStringSelect(select1)
+	
+	if strings.Contains(html, "required") {
+		t.Errorf("Expected HTML to not contain required attribute, got: %s", html)
+	}
+}
+
+func TestSelectComponent_RenderNotMultiple(t *testing.T) {
+	select1 := NewSelect().WithMultiple(false)
+	html := renderToStringSelect(select1)
+	
+	if strings.Contains(html, "multiple") {
+		t.Errorf("Expected HTML to not contain multiple attribute, got: %s", html)
+	}
+}
+
+func TestSelectComponent_RenderDefaultColor(t *testing.T) {
+	select1 := NewSelect()
+	html := renderToStringSelect(select1)
+	
+	// Should not contain color class for primary (default)
+	if strings.Contains(html, "select-primary") {
+		t.Errorf("Expected HTML to not contain 'select-primary' class for default color, got: %s", html)
+	}
+}
+
+func TestSelectComponent_RenderDefaultSize(t *testing.T) {
+	select1 := NewSelect()
+	html := renderToStringSelect(select1)
+	
+	// Should not contain size class for medium (default)
+	if strings.Contains(html, "select-md") {
+		t.Errorf("Expected HTML to not contain 'select-md' class for default size, got: %s", html)
+	}
+}
+
+func TestSelectComponent_Immutability(t *testing.T) {
+	original := NewSelect().WithOption("value1", "Label 1")
+	modified := original.WithColor(flyon.Success).WithOption("value2", "Label 2")
+	
+	originalHTML := renderToStringSelect(original)
+	modifiedHTML := renderToStringSelect(modified)
+	
+	// Original should not contain success color
+	if strings.Contains(originalHTML, "select-success") {
+		t.Errorf("Original component should not be modified, but contains 'select-success'")
+	}
+	
+	// Original should not contain second option
+	if strings.Contains(originalHTML, "value2") {
+		t.Errorf("Original component should not be modified, but contains 'value2'")
+	}
+	
+	// Modified should contain success color
+	if !strings.Contains(modifiedHTML, "select-success") {
+		t.Errorf("Modified component should contain 'select-success'")
+	}
+	
+	// Modified should contain both options
+	if !strings.Contains(modifiedHTML, "value1") {
+		t.Errorf("Modified component should contain 'value1'")
+	}
+	if !strings.Contains(modifiedHTML, "value2") {
+		t.Errorf("Modified component should contain 'value2'")
 	}
 }
