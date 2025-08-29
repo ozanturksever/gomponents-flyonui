@@ -28,8 +28,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create and start the development server
-	server := devserver.NewServer(*example, fmt.Sprintf(":%d", *port))
+	// Create and start the development server with Vite integration
+	server := devserver.NewServerWithVite(*example, fmt.Sprintf(":%d", *port))
 	if err := server.Start(); err != nil {
 		logutil.Logf("Failed to start server: %v\n", err)
 		os.Exit(1)

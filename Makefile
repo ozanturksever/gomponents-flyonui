@@ -1,4 +1,4 @@
-.PHONY: build test serve run clean test-examples test-all test-example
+.PHONY: build test serve run clean test-examples test-all test-example assets assets-dev assets-prod assets-clean assets-watch npm-install
 
 MAKEFLAGS += --no-print-directory
 
@@ -89,3 +89,55 @@ test-all:
 	@echo "==> Running WASM unit tests (excluding examples)..."
 	@set -e; trap '$(MAKE) clean' EXIT INT TERM; $(TEST_ENV) go test $(PKG) $(if $(RUN),-run $(RUN),)
 	@$(MAKE) test-examples
+
+# ============================================================================
+# Vite Asset Management
+# ============================================================================
+
+# Install npm dependencies
+npm-install:
+	@echo "==> Installing npm dependencies..."
+	@if [ ! -f package.json ]; then echo "Error: package.json not found"; exit 1; fi
+	@npm install
+
+# Build assets for development (with source maps)
+assets-dev: npm-install
+	@echo "==> Building Vite assets for development..."
+	@npm run build
+
+# Build assets for production (optimized)
+assets-prod: npm-install
+	@echo "==> Building Vite assets for production..."
+	@NODE_ENV=production npm run build
+
+# Watch assets for development (continuous rebuild)
+assets-watch: npm-install
+	@echo "==> Starting Vite asset watcher..."
+	@npm run build:watch
+
+# Default asset build (development)
+assets: assets-dev
+
+# Clean built assets
+assets-clean:
+	@echo "==> Cleaning built assets..."
+	@rm -rf dist/
+	@rm -rf node_modules/.vite/
+
+# Full clean (assets + WASM)
+clean-all: clean assets-clean
+	@echo "==> Full cleanup completed"
+
+# Build everything (assets + WASM)
+build-all: assets build
+	@echo "==> Built assets and WASM for example: $(EXAMPLE)"
+
+# Run with Vite assets (development server with asset building)
+run-with-assets: assets-dev
+	@echo "==> Starting dev server with Vite assets for example: $(EXAMPLE)..."
+	@$(MAKE) run
+
+# Production build and serve
+serve-prod: assets-prod build
+	@echo "==> Starting production server..."
+	@$(MAKE) serve

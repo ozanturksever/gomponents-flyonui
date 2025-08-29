@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlyonUI Demo - gomponents-flyonui</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/flyonui@2.4.0/flyonui.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/flyonui@2.4.0/flyonui.min.js"></script>
+    <!-- Vite Generated Assets -->
+    <link rel="stylesheet" href="/assets/main.css">
+    <script type="module" src="/assets/main.js"></script>
 </head>
 <body class="bg-base-100 min-h-screen">
     <div class="container mx-auto p-8">
@@ -157,13 +157,16 @@
         </section>
     </div>
 
+    <!-- FlyonUI JavaScript Components via Vite -->
+    <!-- Note: FlyonUI JavaScript is bundled with main.js via Vite -->
+    <!-- The main.js already includes FlyonUI components and initialization -->
+    
     <!-- WASM Loading Script -->
     <script src="wasm_exec.js"></script>
     <script>
         const go = new Go();
         WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
             go.run(result.instance);
-            document.getElementById('wasm-status').textContent = 'Ready';
         }).catch((err) => {
             console.error('WASM loading failed:', err);
             document.getElementById('wasm-status').textContent = 'Failed';

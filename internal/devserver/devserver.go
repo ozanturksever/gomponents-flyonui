@@ -442,8 +442,8 @@ func (s *Server) Start() error {
 			}
 
 			// Rewrite asset tags
-			jsPlaceholder := "/assets/js/main.js"
-			cssPlaceholder := "/assets/css/main.css"
+			jsPlaceholder := "/assets/main.js"
+			cssPlaceholder := "/assets/main.css"
 
 			if s.ViteEnabled() && len(s.viteManifest) > 0 {
 				// Replace via manifest
@@ -522,9 +522,9 @@ func (s *Server) Start() error {
 		if kind == "css" {
 			// First try manifest direct mapping or via JS entry's CSS list
 			if s.ViteEnabled() && len(s.viteManifest) > 0 {
-				if cssEntry, ok := s.viteManifest["assets/css/main.css"]; ok && strings.TrimSpace(cssEntry.File) != "" {
+				if cssEntry, ok := s.viteManifest["assets/main.css"]; ok && strings.TrimSpace(cssEntry.File) != "" {
 					targetURL = "/dist/" + strings.ReplaceAll(cssEntry.File, string(os.PathSeparator), "/")
-				} else if jsEntry, ok := s.viteManifest["assets/js/main.js"]; ok && len(jsEntry.CSS) > 0 {
+				} else if jsEntry, ok := s.viteManifest["assets/main.js"]; ok && len(jsEntry.CSS) > 0 {
 					targetURL = "/dist/" + strings.ReplaceAll(jsEntry.CSS[0], string(os.PathSeparator), "/")
 				}
 			}
@@ -538,7 +538,7 @@ func (s *Server) Start() error {
 			}
 		} else if kind == "js" {
 			if s.ViteEnabled() && len(s.viteManifest) > 0 {
-				if jsEntry, ok := s.viteManifest["assets/js/main.js"]; ok && strings.TrimSpace(jsEntry.File) != "" {
+				if jsEntry, ok := s.viteManifest["assets/main.js"]; ok && strings.TrimSpace(jsEntry.File) != "" {
 					targetURL = "/dist/" + strings.ReplaceAll(jsEntry.File, string(os.PathSeparator), "/")
 				}
 			}
@@ -560,10 +560,10 @@ func (s *Server) Start() error {
 		http.NotFound(w, r)
 	}
 
-	mux.HandleFunc("/assets/css/main.css", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/assets/main.css", func(w http.ResponseWriter, r *http.Request) {
 		resolveAndRedirect("css", w, r)
 	})
-	mux.HandleFunc("/assets/js/main.js", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/assets/main.js", func(w http.ResponseWriter, r *http.Request) {
 		resolveAndRedirect("js", w, r)
 	})
 
