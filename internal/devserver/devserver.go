@@ -3,7 +3,10 @@ package devserver
 import (
 	"bufio"
 	"context"
+	_ "embed"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -12,8 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	_ "embed"
 )
 
 //go:embed wasm_exec-tinygo.js
@@ -21,6 +22,75 @@ var wasmExecJSTinyGo []byte
 
 //go:embed wasm_exec.js
 var wasmExecJS []byte
+
+// getWasmExecJS returns the wasm_exec.js content from file
+func getWasmExecJS() []byte {
+	return wasmExecJS
+}
+
+// BuildViteAssets builds CSS and JS assets using Vite
+func BuildViteAssets(mode string) error {
+	log.Printf("==> Building Vite assets in %s mode...\n", mode)
+
+	// Check if package.json exists
+	if _, err := os.Stat("package.json"); err != nil {
+		return fmt.Errorf("package.json not found - run 'npm install' first")
+	}
+
+	// Check if node_modules exists
+	if _, err := os.Stat("node_modules"); err != nil {
+		log.Println("==> Installing npm dependencies...")
+		installCmd := exec.Command("npm", "install")
+		if out, err := installCmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("npm install failed: %w\nOutput: %s", err, string(out))
+		}
+	}
+
+	var cmd *exec.Cmd
+	if mode == "development" {
+		// For development, we'll use Vite's build --watch mode
+		cmd = exec.Command("npm", "run", "build:watch")
+	} else {
+		// For production builds
+		cmd = exec.Command("npm", "run", "build")
+	}
+
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		s := string(out)
+		scanner := bufio.NewScanner(strings.NewReader(s))
+		for scanner.Scan() {
+			log.Println(scanner.Text())
+		}
+	}
+	return err
+}
+
+// LoadViteManifest loads the Vite build manifest for asset resolution
+func LoadViteManifest() (ViteManifest, error) {
+	manifestPath := "dist/manifest.json"
+	if _, err := os.Stat(manifestPath); err != nil {
+		return nil, fmt.Errorf("Vite manifest not found at %s - run 'npm run build' first", manifestPath)
+	}
+
+	file, err := os.Open(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open manifest: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	var manifest ViteManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	return manifest, nil
+}
 
 // BuildWASM compiles the Go code to WebAssembly for the given example
 func BuildWASM(example string) error {
@@ -67,13 +137,25 @@ func BuildWASM(example string) error {
 	return err
 }
 
+// ViteManifest represents the Vite build manifest structure
+type ViteManifest map[string]struct {
+	File    string   `json:"file"`
+	Src     string   `json:"src,omitempty"`
+	IsEntry bool     `json:"isEntry,omitempty"`
+	CSS     []string `json:"css,omitempty"`
+	Assets  []string `json:"assets,omitempty"`
+}
+
 // Server represents a development server instance
 type Server struct {
-	server   *http.Server
-	mux      *http.ServeMux
-	example  string
-	addr     string
-	listener net.Listener
+	server       *http.Server
+	mux          *http.ServeMux
+	example      string
+	addr         string
+	listener     net.Listener
+	viteEnabled  bool
+	viteBuild    bool
+	viteManifest ViteManifest
 }
 
 // NewServer creates a new development server for the given example
@@ -86,6 +168,21 @@ func NewServer(example, addr string) *Server {
 		example: example,
 		addr:    addr,
 	}
+}
+
+// NewServerWithVite creates a new development server with Vite asset integration
+func NewServerWithVite(example, addr string) *Server {
+	server := NewServer(example, addr)
+	server.viteEnabled = true
+	return server
+}
+
+// NewServerWithViteBuild creates a new development server with Vite asset integration
+func NewServerWithViteBuild(example, addr string) *Server {
+	server := NewServer(example, addr)
+	server.viteEnabled = true
+	server.viteBuild = true
+	return server
 }
 
 // Handle registers a handler on the server's mux
@@ -103,7 +200,23 @@ func (s *Server) HandleFunc(pattern string, handler func(http.ResponseWriter, *h
 
 // Start starts the development server
 func (s *Server) Start() error {
-	// Build WASM first
+	// Build Vite assets if enabled
+	if s.viteEnabled && s.viteBuild {
+		if err := BuildViteAssets("development"); err != nil {
+			log.Printf("Warning: Vite build failed: %v", err)
+			// Continue without Vite assets for development
+			s.viteEnabled = false
+		} else {
+			// Load manifest for asset resolution
+			if manifest, err := LoadViteManifest(); err != nil {
+				log.Printf("Warning: Failed to load Vite manifest: %v", err)
+			} else {
+				s.viteManifest = manifest
+			}
+		}
+	}
+
+	// Build WASM
 	if err := BuildWASM(s.example); err != nil {
 		return fmt.Errorf("failed to build WASM: %w", err)
 	}
@@ -174,8 +287,7 @@ func (s *Server) Start() error {
 	// wasm_exec.js served from embedded content
 	mux.HandleFunc("/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
-		_, _ = w.Write(wasmExecJS)
-		//_, _ = w.Write(wasmExecJSTinyGo)
+		_, _ = w.Write(getWasmExecJS())
 	})
 
 	// main.wasm served with correct MIME type
@@ -184,6 +296,40 @@ func (s *Server) Start() error {
 		w.Header().Set("Content-Type", "application/wasm")
 		http.ServeFile(w, r, wasmPath)
 	})
+
+	// Vite asset serving
+	if s.viteEnabled {
+		// Serve built assets from dist directory
+		distFS := http.FileServer(http.Dir("dist"))
+		mux.Handle("/assets/", http.StripPrefix("/assets/", distFS))
+
+		// Serve CSS and JS files with proper MIME types
+		mux.HandleFunc("/dist/", func(w http.ResponseWriter, r *http.Request) {
+			filePath := strings.TrimPrefix(r.URL.Path, "/dist/")
+			fullPath := filepath.Join("dist", filePath)
+
+			// Set appropriate content type
+			if strings.HasSuffix(filePath, ".css") {
+				w.Header().Set("Content-Type", "text/css")
+			} else if strings.HasSuffix(filePath, ".js") {
+				w.Header().Set("Content-Type", "application/javascript")
+			} else if strings.HasSuffix(filePath, ".map") {
+				w.Header().Set("Content-Type", "application/json")
+			}
+
+			http.ServeFile(w, r, fullPath)
+		})
+
+		// Asset helper endpoint for Go code to get asset URLs
+		mux.HandleFunc("/__vite/assets", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if len(s.viteManifest) > 0 {
+				json.NewEncoder(w).Encode(s.viteManifest)
+			} else {
+				w.Write([]byte("{}"))
+			}
+		})
+	}
 
 	// Create listener to get actual port
 	listener, err := net.Listen("tcp", s.addr)

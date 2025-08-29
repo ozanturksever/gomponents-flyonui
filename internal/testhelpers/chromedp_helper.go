@@ -4,6 +4,7 @@ package testhelpers
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -44,6 +45,11 @@ func VisibleConfig() ChromedpConfig {
 		DisableGPU:         false,
 		NoSandbox:          true,
 		DisableDevShmUsage: true,
+		AdditionalFlags: []chromedp.ExecAllocatorOption{
+			chromedp.Flag("auto-open-devtools-for-tabs", true), // Dev tools'u otomatik aç
+			chromedp.Flag("disable-extensions", true),          // Extension'ları devre dışı bırak
+			chromedp.Flag("disable-default-apps", true),
+		},
 	}
 }
 
@@ -52,6 +58,37 @@ func ExtendedTimeoutConfig() ChromedpConfig {
 	config := DefaultConfig()
 	config.Timeout = 60 * time.Second
 	return config
+}
+
+// DevToolsConfig returns a configuration with developer tools open
+func DevToolsConfig() ChromedpConfig {
+	return ChromedpConfig{
+		Headless:           false, // Dev tools headless modda çalışmaz
+		Timeout:            30 * time.Second,
+		DisableGPU:         false,
+		NoSandbox:          true,
+		DisableDevShmUsage: true,
+		AdditionalFlags: []chromedp.ExecAllocatorOption{
+			chromedp.Flag("auto-open-devtools-for-tabs", true), // Dev tools'u otomatik aç
+		},
+	}
+}
+
+// DevToolsWithConsoleConfig returns a configuration with developer tools open and console tab selected
+func DevToolsWithConsoleConfig() ChromedpConfig {
+	return ChromedpConfig{
+		Headless:           false,
+		Timeout:            30 * time.Second,
+		DisableGPU:         false,
+		NoSandbox:          true,
+		DisableDevShmUsage: true,
+		AdditionalFlags: []chromedp.ExecAllocatorOption{
+			chromedp.Flag("auto-open-devtools-for-tabs", true),
+			// Console panelini açık tutmak için ek flag'ler
+			chromedp.Flag("disable-extensions", true), // Extension'ları devre dışı bırak
+			chromedp.Flag("disable-default-apps", true),
+		},
+	}
 }
 
 // ChromedpTestContext holds the context and cancel function for a chromedp test
@@ -113,12 +150,37 @@ func MustNewChromedpContext(config ChromedpConfig) *ChromedpTestContext {
 // CommonTestActions provides common chromedp actions used across tests
 type CommonTestActions struct{}
 
-// WaitForWASMInit waits for WASM to initialize by waiting for a visible element and adding a delay
-func (CommonTestActions) WaitForWASMInit(selector string, delay time.Duration) chromedp.Action {
-	return chromedp.Tasks{
-		chromedp.WaitVisible(selector, chromedp.ByQuery),
-		chromedp.Sleep(delay),
-	}
+// WaitForWASMInit waits for WASM to initialize by waiting for the status element to show 'Ready'
+func (CommonTestActions) WaitForWASMInit(selector string, timeout time.Duration) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		<-time.After(10 * time.Second)
+		// First wait for the element to be visible
+		if err := chromedp.WaitVisible(selector, chromedp.ByQuery).Do(ctx); err != nil {
+			return err
+		}
+
+		// Create a context with timeout for polling
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		// Poll for the text to change to 'Ready'
+		for {
+			select {
+			case <-ctxWithTimeout.Done():
+				return errors.New("timeout waiting for WASM to be ready")
+			default:
+				var text string
+				if err := chromedp.Text(selector, &text, chromedp.ByQuery).Do(ctx); err != nil {
+					return err
+				}
+				if text == "Ready" {
+					return nil
+				}
+				// Wait a bit before checking again
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	})
 }
 
 // NavigateAndWaitForLoad navigates to a URL and waits for the page to load
@@ -144,6 +206,77 @@ func (CommonTestActions) SendKeysAndWait(selector, text string, wait time.Durati
 		chromedp.SendKeys(selector, text, chromedp.ByQuery),
 		chromedp.Sleep(wait),
 	}
+}
+
+// OpenDevToolsConsole opens the developer tools and focuses on the console tab
+func (CommonTestActions) OpenDevToolsConsole() chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		// F12 tuşuna basarak dev tools'u aç
+		if err := chromedp.KeyEvent(`F12`).Do(ctx); err != nil {
+			return err
+		}
+
+		// Biraz bekle dev tools'un açılması için
+		time.Sleep(1 * time.Second)
+
+		// Console tab'ına geçmek için kısayol tuşu (Ctrl+`)
+		return chromedp.KeyEvent("ctrl+`").Do(ctx)
+	})
+}
+
+// ExecuteConsoleCommand executes a command in the browser console
+func (CommonTestActions) ExecuteConsoleCommand(command string) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		// JavaScript komutunu çalıştır
+		var result interface{}
+		return chromedp.Evaluate(command, &result).Do(ctx)
+	})
+}
+
+// WaitForConsoleLog waits for a specific console log message
+func (CommonTestActions) WaitForConsoleLog(expectedMessage string, timeout time.Duration) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		// Console logları dinlemek için JavaScript kodu
+		script := `
+			window.testConsoleMessages = window.testConsoleMessages || [];
+			if (!window.testConsoleLogIntercepted) {
+				const originalLog = console.log;
+				console.log = function(...args) {
+					window.testConsoleMessages.push(args.join(' '));
+					originalLog.apply(console, arguments);
+				};
+				window.testConsoleLogIntercepted = true;
+			}
+		`
+
+		if err := chromedp.Evaluate(script, nil).Do(ctx); err != nil {
+			return err
+		}
+
+		// Beklenen mesajı kontrol et
+		for {
+			select {
+			case <-ctxWithTimeout.Done():
+				return errors.New("timeout waiting for console log: " + expectedMessage)
+			default:
+				var messages []string
+				if err := chromedp.Evaluate(`window.testConsoleMessages || []`, &messages).Do(ctx); err != nil {
+					return err
+				}
+
+				for _, msg := range messages {
+					if msg == expectedMessage {
+						return nil
+					}
+				}
+
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	})
 }
 
 // Global instance for easy access to common actions
