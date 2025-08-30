@@ -369,6 +369,35 @@ func (s *Server) Start() error {
 					s.viteManifest = manifest
 				}
 			}
+ 	}
+	}
+
+	// Fallback: if Vite is disabled and no dist assets are found, try a one-off build
+	if !s.ViteEnabled() {
+		// Check if a dist directory exists locally or at repo root
+		candidates := []string{"dist", filepath.Join("..", "..", "dist")}
+		hasDist := false
+		for _, c := range candidates {
+			if fi, err := os.Stat(c); err == nil && fi.IsDir() {
+				hasDist = true
+				break
+			}
+		}
+		if !hasDist {
+			roots := []string{".", filepath.Join("..", "..")}
+			for _, root := range roots {
+				if _, err := os.Stat(filepath.Join(root, "package.json")); err == nil {
+					cfg := ViteConfig{Enabled: true, Root: root, BuildMode: "development"}
+					if err := BuildViteAssetsWithConfig(cfg); err != nil {
+						logutil.Logf("Warning: Fallback Vite build failed in %s: %v\n", root, err)
+						continue
+					}
+					if manifest, err := LoadViteManifestWithConfig(cfg); err == nil {
+						s.viteManifest = manifest
+					}
+					break
+				}
+			}
 		}
 	}
 
@@ -445,7 +474,7 @@ func (s *Server) Start() error {
 			jsPlaceholder := "/assets/main.js"
 			cssPlaceholder := "/assets/main.css"
 
-			if s.ViteEnabled() && len(s.viteManifest) > 0 {
+			if len(s.viteManifest) > 0 {
 				// Replace via manifest
 				jsKey := strings.TrimPrefix(jsPlaceholder, "/")
 				if entry, ok := s.viteManifest[jsKey]; ok && strings.TrimSpace(entry.File) != "" {
@@ -464,12 +493,16 @@ func (s *Server) Start() error {
 					html = strings.ReplaceAll(html, cssPlaceholder, "/dist/"+cssEntry.File)
 				}
 			} else if strings.TrimSpace(distBase) != "" {
-				// Fallback: glob for hashed asset files if manifest is unavailable or Vite disabled
+				// Fallback: glob for hashed asset files if manifest is unavailable
 				if files, _ := filepath.Glob(filepath.Join(distBase, "js", "main-*.js")); len(files) > 0 {
 					html = strings.ReplaceAll(html, jsPlaceholder, "/dist/js/"+filepath.Base(files[0]))
+				} else if files, _ := filepath.Glob(filepath.Join(distBase, "assets", "main-*.js")); len(files) > 0 {
+					html = strings.ReplaceAll(html, jsPlaceholder, "/dist/assets/"+filepath.Base(files[0]))
 				}
 				if files, _ := filepath.Glob(filepath.Join(distBase, "css", "main-*.css")); len(files) > 0 {
 					html = strings.ReplaceAll(html, cssPlaceholder, "/dist/css/"+filepath.Base(files[0]))
+				} else if files, _ := filepath.Glob(filepath.Join(distBase, "assets", "main-*.css")); len(files) > 0 {
+					html = strings.ReplaceAll(html, cssPlaceholder, "/dist/assets/"+filepath.Base(files[0]))
 				}
 			}
 
@@ -544,6 +577,10 @@ func (s *Server) Start() error {
 			}
 			if targetURL == "" && strings.TrimSpace(distBase) != "" {
 				if files, _ := filepath.Glob(filepath.Join(distBase, "js", "main-*.js")); len(files) > 0 {
+					if rel, err := filepath.Rel(distBase, files[0]); err == nil {
+						targetURL = "/dist/" + strings.ReplaceAll(rel, string(os.PathSeparator), "/")
+					}
+				} else if files, _ := filepath.Glob(filepath.Join(distBase, "assets", "main-*.js")); len(files) > 0 {
 					if rel, err := filepath.Rel(distBase, files[0]); err == nil {
 						targetURL = "/dist/" + strings.ReplaceAll(rel, string(os.PathSeparator), "/")
 					}

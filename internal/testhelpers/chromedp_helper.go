@@ -153,7 +153,6 @@ type CommonTestActions struct{}
 // WaitForWASMInit waits for WASM to initialize by waiting for the status element to show 'Ready'
 func (CommonTestActions) WaitForWASMInit(selector string, timeout time.Duration) chromedp.Action {
 	return chromedp.ActionFunc(func(ctx context.Context) error {
-		<-time.After(10 * time.Second)
 		// First wait for the element to be visible
 		if err := chromedp.WaitVisible(selector, chromedp.ByQuery).Do(ctx); err != nil {
 			return err
