@@ -22,21 +22,21 @@ class FlyonUIManager {
     if (this.initialized) return;
     
     // Initialize FlyonUI if available
-    if (typeof window.FlyonUI !== 'undefined') {
-      window.FlyonUI.autoInit();
+    if (typeof window.HSStaticMethods !== 'undefined') {
+      window.HSStaticMethods.autoInit();
       this.initialized = true;
-      console.log('FlyonUI components initialized');
+      console.log('FlyonUI components initialized via HSStaticMethods');
     } else {
-      console.warn('FlyonUI not found - components may not be interactive');
+      console.warn('HSStaticMethods not found - FlyonUI components may not be interactive');
     }
     
     this.setupComponentObserver();
   }
 
   reinitialize() {
-    if (typeof window.FlyonUI !== 'undefined') {
-      window.FlyonUI.autoInit();
-      console.log('FlyonUI components reinitialized');
+    if (typeof window.HSStaticMethods !== 'undefined') {
+      window.HSStaticMethods.autoInit();
+      console.log('FlyonUI components reinitialized via HSStaticMethods');
     }
   }
 

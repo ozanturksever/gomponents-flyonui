@@ -75,6 +75,13 @@ func waitForJSReady(callback func()) {
 func initializeFlyonUIComponents() {
 	logutil.Log("Initializing FlyonUI components...")
 
+	// Check if HSStaticMethods is available (FlyonUI's initialization method)
+	hsStaticMethods := js.Global().Get("HSStaticMethods")
+	if !hsStaticMethods.Truthy() {
+		logutil.Log("Warning: HSStaticMethods not found, FlyonUI may not be loaded")
+		return
+	}
+
 	// Check if FlyonUI manager is available
 	flyonUIManager := js.Global().Get("flyonUIManager")
 	if !flyonUIManager.Truthy() {
@@ -82,13 +89,13 @@ func initializeFlyonUIComponents() {
 		return
 	}
 
-	// Check if FlyonUI is initialized
+	// Check if FlyonUI is already initialized
 	if flyonUIManager.Get("initialized").Bool() {
 		logutil.Log("FlyonUI already initialized")
 		return
 	}
 
-	// Initialize FlyonUI
+	// Initialize FlyonUI via the manager
 	flyonUIManager.Call("init")
 	logutil.Log("FlyonUI components initialized via JavaScript")
 }

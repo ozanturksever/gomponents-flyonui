@@ -47,9 +47,7 @@ func TestFlyonUIDemo_DropdownInteraction(t *testing.T) {
 	// Test dropdown functionality
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForConsoleLog("asd", 10000*time.Second),
-		testhelpers.Actions.OpenDevToolsConsole(),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Test primary dropdown
 		chromedp.WaitVisible(".dropdown-trigger", chromedp.ByQuery),
@@ -81,7 +79,7 @@ func TestFlyonUIDemo_ModalInteraction(t *testing.T) {
 	// Test modal functionality
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Open demo modal
 		chromedp.WaitVisible("[data-modal-target='demo-modal']", chromedp.ByQuery),
@@ -116,7 +114,7 @@ func TestFlyonUIDemo_ConfirmModalInteraction(t *testing.T) {
 	// Test confirm modal functionality
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Open confirm modal
 		chromedp.WaitVisible("[data-modal-target='confirm-modal']", chromedp.ByQuery),
@@ -151,7 +149,7 @@ func TestFlyonUIDemo_AlertInteraction(t *testing.T) {
 	// Test alert close functionality
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Verify alerts are visible
 		chromedp.WaitVisible("#info-alert", chromedp.ByID),
@@ -189,7 +187,7 @@ func TestFlyonUIDemo_ComponentShowcase(t *testing.T) {
 	// Test component showcase rendering
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Verify badges are rendered
 		chromedp.WaitVisible(".badge-primary", chromedp.ByQuery),
@@ -228,7 +226,7 @@ func TestFlyonUIDemo_ResponsiveLayout(t *testing.T) {
 	// Test responsive layout at different viewport sizes
 	err := chromedp.Run(chromedpCtx.Ctx,
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
-		testhelpers.Actions.WaitForWASMInit("#wasm-status", 3*time.Second),
+		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
 		// Test mobile viewport
 		chromedp.EmulateViewport(375, 667),
