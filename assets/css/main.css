@@ -2,15 +2,3 @@
 @plugin "flyonui";
 @import "flyonui/variants.css";
 @source "../../node_modules/flyonui/flyonui.js";
-
-.app-container {
-  @apply min-h-screen bg-base-100;
-}
-
-.btn-custom {
-  @apply btn btn-primary transition-all duration-200 hover:scale-105;
-}
-
-.card-custom {
-  @apply card bg-base-100 shadow-lg hover:shadow-xl transition-shadow duration-200;
-}

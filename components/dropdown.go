@@ -1,8 +1,10 @@
 package components
 
 import (
+	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 
 	"github.com/ozanturksever/gomponents-flyonui/flyon"
 	"maragu.dev/gomponents"
@@ -62,7 +64,7 @@ func NewDropdown(trigger gomponents.Node, content ...gomponents.Node) *DropdownC
 	return &DropdownComponent{
 		trigger:   trigger,
 		content:   content,
-		classes:   []string{"dropdown"},
+		classes:   []string{"dropdown", "relative inline-flex"},
 		position:  DropdownBottom,
 		autoClose: true,
 		disabled:  false,
@@ -148,50 +150,56 @@ func (d *DropdownComponent) Render(w io.Writer) error {
 		positionClasses := strings.Split(d.position.String(), " ")
 		classes = append(classes, positionClasses...)
 	}
-	
+	// Auto-close behavior via CSS variable class
+	if d.autoClose {
+		classes = append(classes, "[--auto-close:inside]")
+	} else {
+		classes = append(classes, "[--auto-close:outside]")
+	}
+
 	// Generate ID if not provided
 	id := d.id
 	if id == "" {
 		id = "dropdown-" + generateID()
 	}
-	
+
 	// Create trigger with proper attributes
 	triggerAttrs := []gomponents.Node{
+		h.ID(id + "-toggle"),
 		h.Type("button"),
-		h.DataAttr("hs-dropdown-toggle", ""),
+		h.Class("dropdown-toggle"),
 		h.Aria("expanded", "false"),
-		h.Aria("haspopup", "true"),
+		h.Aria("haspopup", "menu"),
 	}
-	
+
 	if d.disabled {
 		triggerAttrs = append(triggerAttrs, h.Disabled())
 	}
-	
+
 	// Wrap trigger if it's not already a button
 	triggerElement := h.Button(
 		append(triggerAttrs, d.trigger)...,
 	)
-	
+
 	// Create dropdown menu
-	menuClasses := "dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+	menuClasses := "dropdown-menu dropdown-open:opacity-100 hidden min-w-60"
 	menu := h.Ul(
 		h.Class(menuClasses),
-		h.DataAttr("hs-dropdown-menu", ""),
-		h.Aria("labelledby", id+"-trigger"),
+		h.Aria("labelledby", id+"-toggle"),
+		h.Aria("orientation", "vertical"),
 		h.Role("menu"),
 		gomponents.Group(d.content),
 	)
-	
+
 	// Create the complete dropdown structure
 	dropdownEl := h.Div(
 		h.ID(id),
 		h.Class(strings.Join(classes, " ")),
-		h.DataAttr("hs-dropdown", ""),
 		gomponents.Group(d.attributes),
 		triggerElement,
 		menu,
 	)
-	
+
 	return dropdownEl.Render(w)
 }
 
@@ -199,7 +207,7 @@ func (d *DropdownComponent) Render(w io.Writer) error {
 func DropdownItem(children ...gomponents.Node) gomponents.Node {
 	return h.Li(
 		h.A(
-			h.Class("block px-4 py-2 hover:bg-base-200 rounded"),
+			h.Class("dropdown-item"),
 			h.Role("menuitem"),
 			gomponents.Group(children),
 		),
@@ -217,21 +225,18 @@ func DropdownDivider() gomponents.Node {
 func DropdownHeader(text string) gomponents.Node {
 	return h.Li(
 		h.Div(
-			h.Class("px-4 py-2 text-sm font-semibold text-base-content/70"),
+			h.Class("dropdown-header font-semibold text-base-content/70"),
 			gomponents.Text(text),
 		),
 	)
 }
 
-// generateID generates a simple ID for components
+// generateID generates a unique ID suffix for components
+var dropdownIDCounter uint64
+
 func generateID() string {
-	// Simple counter-based ID generation
-	// In a real implementation, you might want a more sophisticated approach
-	static := struct {
-		counter int
-	}{}
-	static.counter++
-	return strings.Join([]string{"comp", string(rune(static.counter+48))}, "")
+	n := atomic.AddUint64(&dropdownIDCounter, 1)
+	return fmt.Sprintf("d%06d", n)
 }
 
 // Ensure DropdownComponent implements the required interfaces

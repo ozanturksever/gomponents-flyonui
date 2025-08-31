@@ -40,21 +40,21 @@
             <h2 class="text-2xl font-semibold mb-4">Dropdowns</h2>
             <div class="flex gap-4">
                 <div class="dropdown">
-                    <button class="dropdown-trigger btn btn-primary">Primary Dropdown</button>
-                    <div class="dropdown-content hidden bg-base-100 shadow-lg rounded-box p-2 mt-2 min-w-52">
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Option 1</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Option 2</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Option 3</a>
-                    </div>
+                    <button id="demo-dd-1" class="dropdown-toggle btn btn-primary" aria-haspopup="menu" aria-expanded="false" aria-label="Dropdown">Primary Dropdown</button>
+                    <ul class="dropdown-menu dropdown-open:opacity-100 hidden min-w-60" role="menu" aria-orientation="vertical" aria-labelledby="demo-dd-1">
+                        <li><a href="#" class="dropdown-item">Option 1</a></li>
+                        <li><a href="#" class="dropdown-item">Option 2</a></li>
+                        <li><a href="#" class="dropdown-item">Option 3</a></li>
+                    </ul>
                 </div>
                 
                 <div class="dropdown">
-                    <button class="dropdown-trigger btn btn-secondary">Secondary Dropdown</button>
-                    <div class="dropdown-content hidden bg-base-100 shadow-lg rounded-box p-2 mt-2 min-w-52">
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Action</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Settings</a>
-                        <a href="#" class="block px-4 py-2 hover:bg-base-200 rounded">Profile</a>
-                    </div>
+                    <button id="demo-dd-2" class="dropdown-toggle btn btn-secondary" aria-haspopup="menu" aria-expanded="false" aria-label="Dropdown">Secondary Dropdown</button>
+                    <ul class="dropdown-menu dropdown-open:opacity-100 hidden min-w-60" role="menu" aria-orientation="vertical" aria-labelledby="demo-dd-2">
+                        <li><a href="#" class="dropdown-item">Action</a></li>
+                        <li><a href="#" class="dropdown-item">Settings</a></li>
+                        <li><a href="#" class="dropdown-item">Profile</a></li>
+                    </ul>
                 </div>
             </div>
         </section>

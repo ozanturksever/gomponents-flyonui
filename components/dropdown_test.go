@@ -19,8 +19,15 @@ func TestNewDropdown(t *testing.T) {
 		t.Fatal("NewDropdown returned nil")
 	}
 	
-	if len(dropdown.classes) != 1 || dropdown.classes[0] != "dropdown" {
-		t.Errorf("Expected classes to contain 'dropdown', got %v", dropdown.classes)
+	foundDropdown := false
+	for _, c := range dropdown.classes {
+		if c == "dropdown" {
+			foundDropdown = true
+			break
+		}
+	}
+	if !foundDropdown {
+		t.Errorf("Expected classes to include 'dropdown', got %v", dropdown.classes)
 	}
 	
 	if dropdown.position != DropdownBottom {
@@ -196,28 +203,24 @@ func TestDropdownComponent_Render(t *testing.T) {
 		t.Error("Expected dropdown ID in HTML")
 	}
 	
-	if !strings.Contains(html, `class="dropdown"`) {
+	if !strings.Contains(html, `class="dropdown`) {
 		t.Error("Expected dropdown class in HTML")
 	}
 	
-	if !strings.Contains(html, `data-hs-dropdown=""`) {
-		t.Error("Expected hs-dropdown data attribute")
+	if !strings.Contains(html, `class="dropdown-toggle"`) {
+		t.Error("Expected dropdown-toggle class on trigger")
 	}
 	
-	if !strings.Contains(html, `data-hs-dropdown-toggle=""`) {
-		t.Error("Expected hs-dropdown-toggle data attribute on trigger")
-	}
-	
-	if !strings.Contains(html, `data-hs-dropdown-menu=""`) {
-		t.Error("Expected hs-dropdown-menu data attribute on menu")
+	if !strings.Contains(html, `class="dropdown-menu`) {
+		t.Error("Expected dropdown-menu class on menu")
 	}
 	
 	if !strings.Contains(html, `aria-expanded="false"`) {
 		t.Error("Expected aria-expanded attribute on trigger")
 	}
 	
-	if !strings.Contains(html, `aria-haspopup="true"`) {
-		t.Error("Expected aria-haspopup attribute on trigger")
+	if !strings.Contains(html, `aria-haspopup="menu"`) {
+		t.Error("Expected aria-haspopup=menu attribute on trigger")
 	}
 	
 	if !strings.Contains(html, `role="menu"`) {
@@ -302,8 +305,8 @@ func TestDropdownItem(t *testing.T) {
 		t.Error("Expected item text")
 	}
 	
-	if !strings.Contains(html, "hover:bg-base-200") {
-		t.Error("Expected hover styling class")
+	if !strings.Contains(html, "dropdown-item") {
+		t.Error("Expected dropdown-item class")
 	}
 }
 
@@ -387,8 +390,17 @@ func TestDropdownComponent_Immutability(t *testing.T) {
 	if original.disabled {
 		t.Error("Original disabled should remain false")
 	}
-	if len(original.classes) != 1 || original.classes[0] != "dropdown" {
-		t.Error("Original classes should remain unchanged")
+	// Default classes should still be the defaults from NewDropdown
+	expected := map[string]bool{"dropdown": false, "relative inline-flex": false}
+	for _, c := range original.classes {
+		if _, ok := expected[c]; ok {
+			expected[c] = true
+		}
+	}
+	for k, v := range expected {
+		if !v {
+			t.Errorf("Original classes should include %q", k)
+		}
 	}
 	
 	// Ensure modifications are applied to new instances

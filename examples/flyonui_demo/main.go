@@ -46,7 +46,7 @@ func hydrate(assetResolver *vite.AssetResolver) {
 		bridge.InitializeAllComponents()
 
 		// Setup event listeners for interactive components
-		setupDropdownListeners()
+		//setupDropdownListeners()
 		setupModalListeners()
 		setupAlertListeners()
 
@@ -140,7 +140,7 @@ func completeHydration() {
 
 func setupDropdownListeners() {
 	doc := dom.GetWindow().Document()
-	dropdownTriggers := doc.QuerySelectorAll(".dropdown-trigger")
+	dropdownTriggers := doc.QuerySelectorAll(".dropdown-toggle")
 
 	for _, trigger := range dropdownTriggers {
 		trigger.AddEventListener("click", false, func(event dom.Event) {
@@ -148,7 +148,7 @@ func setupDropdownListeners() {
 			logutil.Log("Dropdown triggered")
 
 			// Find the associated dropdown menu
-			dropdown := trigger.ParentElement().QuerySelector(".dropdown-content")
+			dropdown := trigger.ParentElement().QuerySelector(".dropdown-menu")
 			if dropdown != nil {
 				if dropdown.Class().Contains("hidden") {
 					dropdown.Class().Remove("hidden")

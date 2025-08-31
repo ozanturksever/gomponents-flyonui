@@ -63,7 +63,7 @@ class FlyonUIManager {
         clearTimeout(this.reinitTimeout);
         this.reinitTimeout = setTimeout(() => {
           this.reinitialize();
-        }, 100);
+        }, 10);
       }
     });
     

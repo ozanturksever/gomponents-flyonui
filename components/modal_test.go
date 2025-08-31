@@ -51,12 +51,12 @@ func TestModalSize_String(t *testing.T) {
 		size     ModalSize
 		expected string
 	}{
-		{"modal-sm", ModalSizeSmall, "modal-sm"},
-		{"modal-md", ModalSizeMedium, "modal-md"},
-		{"modal-lg", ModalSizeLarge, "modal-lg"},
-		{"modal-xl", ModalSizeExtraLarge, "modal-xl"},
-		{"modal-full", ModalSizeFullWidth, "modal-full"},
-		{"default", ModalSize(999), "modal-md"},
+		{"modal-dialog-sm", ModalSizeSmall, "modal-dialog-sm"},
+		{"modal-dialog-md", ModalSizeMedium, "modal-dialog-md"},
+		{"modal-dialog-lg", ModalSizeLarge, "modal-dialog-lg"},
+		{"modal-dialog-xl", ModalSizeExtraLarge, "modal-dialog-xl"},
+		{"modal-dialog-full", ModalSizeFullWidth, "modal-dialog-full"},
+		{"default", ModalSize(999), ""},
 	}
 	
 	for _, tt := range tests {
@@ -235,8 +235,9 @@ func TestModalComponent_With(t *testing.T) {
 	if original.size != ModalSizeDefault {
 		t.Error("Original modal size should remain unchanged")
 	}
-	if len(original.classes) != 1 || original.classes[0] != "modal" {
-		t.Error("Original modal classes should remain unchanged")
+	// The classes slice holds only custom classes; base classes are added at render-time
+	if len(original.classes) != 0 {
+		t.Error("Original modal classes should remain unchanged (no custom classes by default)")
 	}
 }
 
@@ -253,8 +254,8 @@ func TestModalComponent_Render(t *testing.T) {
 	html := buf.String()
 	
 	// Check for modal structure per updated docs
-	if !strings.Contains(html, `class="overlay modal`) {
-		t.Error("Modal should have 'overlay modal' classes")
+	if !strings.Contains(html, `class="overlay modal overlay-open:opacity-100 overlay-open:duration-300`) {
+		t.Error("Modal should have 'overlay modal overlay-open:opacity-100 overlay-open:duration-300' classes")
 	}
 	
 	if !strings.Contains(html, `role="dialog"`) {
@@ -299,9 +300,14 @@ func TestModalComponent_RenderWithSize(t *testing.T) {
 	
 	html := buf.String()
 	
-	// Size classes are deprecated in new modal structure; ensure not present
-	if strings.Contains(html, "modal-lg") {
-		t.Error("Modal should not include legacy size classes")
+	// Size classes should be applied to modal-dialog element
+	if !strings.Contains(html, `class="modal-dialog modal-dialog-lg"`) {
+		t.Error("Modal dialog should include modal-dialog-lg size class")
+	}
+
+	// Size classes should NOT be on the main modal container
+	if strings.Contains(html, `class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden modal-dialog-lg"`) {
+		t.Error("Modal container should not include size classes")
 	}
 }
 
@@ -320,6 +326,29 @@ func TestModalComponent_RenderNotClosable(t *testing.T) {
 	// Check that close button is not present (data-overlay close should be absent in header)
 	if strings.Contains(html, `data-overlay="#`) {
 		t.Error("Modal should not have close button when not closable")
+	}
+
+	// Check that keyboard control is disabled when not closable
+	if !strings.Contains(html, `data-overlay-keyboard="false"`) {
+		t.Error("Modal should have data-overlay-keyboard=false when not closable")
+	}
+}
+
+func TestModalComponent_RenderWithKeyboard(t *testing.T) {
+	content := gomponents.Text("Modal content")
+	modal := NewModal("Test Modal", content).WithKeyboard(false)
+
+	var buf strings.Builder
+	err := modal.Render(&buf)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	html := buf.String()
+
+	// Check that keyboard control attribute is present when disabled
+	if !strings.Contains(html, `data-overlay-keyboard="false"`) {
+		t.Error("Modal should have data-overlay-keyboard=false when keyboard is disabled")
 	}
 }
 

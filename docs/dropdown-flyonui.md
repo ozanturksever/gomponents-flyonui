@@ -73,19 +73,29 @@ The size of the dropdown menu is typically controlled by its content and can be 
 FlyonUI's dropdown is an interactive component that requires JavaScript.
 
 ### Initialization
-The dropdowns are automatically initialized if you are using the main FlyonUI script and the correct data attributes.
+FlyonUI dropdowns are auto-initialized when flyonui.js is loaded. No manual init is required in typical setups.
+
+If you need to delay or prevent auto-init for a specific dropdown, add the class `--prevent-on-load-init` to its container and initialize later as needed.
+
 ```javascript
-import { initDropdowns } from 'flowbite'; // Or your specific FlyonUI initialization script
-initDropdowns();
+// Example: ensure FlyonUI has initialized (available on window)
+if (window.HSStaticMethods) {
+  // HSStaticMethods can be used for framework-integration utilities if needed
+  // window.HSStaticMethods.autoInit() // usually not necessary, auto-run on load
+}
 ```
 
 ### Programmatic Control
-You can control the dropdown programmatically if you have an instance.
+FlyonUI exposes `HSDropdown` static helpers for programmatic control.
 ```javascript
-// Example, actual API may vary
-const myDropdown = HSDropdown.getInstance('#my-dropdown-id', true);
-myDropdown.element.open();
-myDropdown.element.close();
+// Open a dropdown by container id
+HSDropdown.open('#dropdown-method')
+
+// Close a dropdown
+HSDropdown.close('#dropdown-method')
+
+// Toggle a dropdown
+HSDropdown.toggle('#dropdown-method')
 ```
 
 ### Static Methods

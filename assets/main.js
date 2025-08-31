@@ -71,7 +71,7 @@ if (import.meta.env.DEV) {
 
 // Production mode optimizations
 if (import.meta.env.PROD) {
-  console.log('gomponents-flyonui assets loaded in production mode');
+  // console.log('gomponents-flyonui assets loaded in production mode');
 }
 
 // Export for potential module usage

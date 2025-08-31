@@ -25,17 +25,17 @@ const (
 func (s ModalSize) String() string {
 	switch s {
 	case ModalSizeSmall:
-		return "modal-sm"
+		return "modal-dialog-sm"
 	case ModalSizeMedium:
-		return "modal-md"
+		return "modal-dialog-md"
 	case ModalSizeLarge:
-		return "modal-lg"
+		return "modal-dialog-lg"
 	case ModalSizeExtraLarge:
-		return "modal-xl"
+		return "modal-dialog-xl"
 	case ModalSizeFullWidth:
-		return "modal-full"
+		return "modal-dialog-full"
 	default:
-		return "modal-md" // Default to medium size
+		return "" // No size class for default
 	}
 }
 
@@ -53,7 +53,8 @@ func (p ModalPosition) String() string {
 	switch p {
 	case ModalPositionMiddle:
 		return "modal-middle"
-	// Bottom position is deprecated in latest FlyonUI modal; no class mapping
+	case ModalPositionBottom:
+		return "modal-bottom"
 	default:
 		return "" // No position class for default
 	}
@@ -154,7 +155,7 @@ func (m *ModalComponent) WithActions(actions ...gomponents.Node) *ModalComponent
 // With applies modifiers to the modal and returns a new instance
 func (m *ModalComponent) With(modifiers ...any) flyon.Component {
 	newModal := m.copy()
-	
+
 	// Apply each modifier
 	for _, modifier := range modifiers {
 		switch mod := modifier.(type) {
@@ -175,7 +176,7 @@ func (m *ModalComponent) With(modifiers ...any) flyon.Component {
 			newModal.classes = append(newModal.classes, mod)
 		}
 	}
-	
+
 	return newModal
 }
 
@@ -195,39 +196,39 @@ func (m *ModalComponent) copy() *ModalComponent {
 		open:       m.open,
 		keyboard:   m.keyboard,
 	}
-	
+
 	copy(newModal.content, m.content)
 	copy(newModal.actions, m.actions)
 	copy(newModal.attributes, m.attributes)
 	copy(newModal.classes, m.classes)
-	
+
 	return newModal
 }
 
 // Render implements the gomponents.Node interface
 func (m *ModalComponent) Render(w io.Writer) error {
 	// Build the class list for the modal container
-	classes := make([]string, 0, len(m.classes)+3)
+	classes := make([]string, 0, len(m.classes)+5)
 	// Ensure required container classes per latest FlyonUI docs
-	classes = append(classes, "overlay", "modal")
+	classes = append(classes, "overlay", "modal", "overlay-open:opacity-100", "overlay-open:duration-300")
 	classes = append(classes, m.classes...)
-	
+
 	// Add position class if specified
 	if positionClass := m.position.String(); positionClass != "" {
 		classes = append(classes, positionClass)
 	}
-	
+
 	// Visibility: use hidden class when not open
 	if !m.open {
 		classes = append(classes, "hidden")
 	}
-	
+
 	// Generate ID if not provided
 	id := m.id
 	if id == "" {
 		id = "modal-" + generateID()
 	}
-	
+
 	// Create modal attributes
 	modalAttrs := []gomponents.Node{
 		h.ID(id),
@@ -235,14 +236,22 @@ func (m *ModalComponent) Render(w io.Writer) error {
 		h.Role("dialog"),
 		gomponents.Attr("tabindex", "-1"),
 	}
-	
+
+	// Keyboard behavior
+	if !m.keyboard {
+		modalAttrs = append(modalAttrs, gomponents.Attr("data-overlay-keyboard", "false"))
+	}
+
 	// Add custom attributes (e.g., overlay-open:* utilities)
 	modalAttrs = append(modalAttrs, m.attributes...)
-	
+
 	// Build dialog/content structure classes
 	dialogClasses := []string{"modal-dialog"}
+	if sizeClass := m.size.String(); sizeClass != "" {
+		dialogClasses = append(dialogClasses, sizeClass)
+	}
 	contentClasses := []string{"modal-content"}
-	
+
 	// Header
 	var headerNodes []gomponents.Node
 	if m.title != "" {
@@ -262,14 +271,14 @@ func (m *ModalComponent) Render(w io.Writer) error {
 			h.Span(h.Class("icon-[tabler--x] size-4")),
 		))
 	}
-	
+
 	// Body and footer
 	bodyNode := h.Div(h.Class("modal-body"), gomponents.Group(m.content))
 	var footerNode gomponents.Node
 	if len(m.actions) > 0 {
 		footerNode = h.Div(h.Class("modal-footer"), gomponents.Group(m.actions))
 	}
-	
+
 	// Assemble modal element
 	modalEl := h.Div(append(modalAttrs,
 		h.Div(
@@ -283,7 +292,7 @@ func (m *ModalComponent) Render(w io.Writer) error {
 			),
 		),
 	)...)
-	
+
 	return modalEl.Render(w)
 }
 
@@ -295,7 +304,7 @@ func ModalAction(text string, variant flyon.Color, attrs ...gomponents.Node) gom
 	}
 	buttonAttrs = append(buttonAttrs, attrs...)
 	buttonAttrs = append(buttonAttrs, gomponents.Text(text))
-	
+
 	return h.Button(buttonAttrs...)
 }
 
