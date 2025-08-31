@@ -162,42 +162,115 @@ func setupDropdownListeners() {
 	}
 }
 
+// setupModalListeners sets up event listeners for modal functionality using FlyonUI's HSOverlay API
 func setupModalListeners() {
 	doc := dom.GetWindow().Document()
-	modalTriggers := doc.QuerySelectorAll(".modal-trigger")
 
-	for _, trigger := range modalTriggers {
-		trigger.AddEventListener("click", false, func(event dom.Event) {
+	// Initialize HSOverlay for all modals
+	if hsOverlay := js.Global().Get("HSOverlay"); !hsOverlay.IsUndefined() {
+		// Auto-initialize all overlays
+		hsOverlay.Call("autoInit")
+		logutil.Log("HSOverlay auto-initialized")
+	} else {
+		logutil.Log("HSOverlay not found, falling back to manual implementation")
+		// Fallback to manual implementation
+		setupManualModalListeners(doc)
+		return
+	}
+
+	//// Handle modal trigger buttons with HSOverlay API
+	//modalTriggers := doc.QuerySelectorAll(".modal-trigger")
+	//for _, trigger := range modalTriggers {
+	//	trigger.AddEventListener("click", false, func(event dom.Event) {
+	//		event.PreventDefault()
+	//
+	//		// Get the target modal ID from data attribute
+	//		targetID := trigger.GetAttribute("data-modal-target")
+	//		if targetID == "" {
+	//			return
+	//		}
+	//
+	//		// Use HSOverlay API to open the modal
+	//		modal := doc.GetElementByID(targetID)
+	//		if modal != nil {
+	//			if hsOverlay := js.Global().Get("HSOverlay"); !hsOverlay.IsUndefined() {
+	//				// Create HSOverlay instance and open
+	//				instance := hsOverlay.Call("getInstance", modal.Underlying())
+	//				if instance.IsUndefined() {
+	//					// Create new instance if it doesn't exist
+	//					instance = js.Global().Get("HSOverlay").New(modal.Underlying())
+	//				}
+	//				instance.Call("open")
+	//				logutil.Logf("Opened modal using HSOverlay: %s", targetID)
+	//			} else {
+	//				// Fallback
+	//				modal.Class().Remove("hidden")
+	//				logutil.Logf("Opened modal (fallback): %s", targetID)
+	//			}
+	//		}
+	//	})
+	//}
+	//
+	//// Handle modal close buttons with HSOverlay API
+	//modalCloseButtons := doc.QuerySelectorAll(".modal-close")
+	//for _, closeBtn := range modalCloseButtons {
+	//	closeBtn.AddEventListener("click", false, func(event dom.Event) {
+	//		event.PreventDefault()
+	//
+	//		// Find the parent modal and close it using HSOverlay
+	//		modal := closeBtn.Closest(".modal")
+	//		if modal != nil {
+	//			if hsOverlay := js.Global().Get("HSOverlay"); !hsOverlay.IsUndefined() {
+	//				instance := hsOverlay.Call("getInstance", modal.Underlying())
+	//				if !instance.IsUndefined() {
+	//					instance.Call("close")
+	//					logutil.Log("Closed modal using HSOverlay")
+	//				} else {
+	//					// Fallback
+	//					modal.Class().Add("hidden")
+	//					logutil.Log("Closed modal (fallback)")
+	//				}
+	//			} else {
+	//				// Fallback
+	//				modal.Class().Add("hidden")
+	//				logutil.Log("Closed modal (fallback)")
+	//			}
+	//		}
+	//	})
+	//}
+	//
+	//logutil.Logf("Set up %d modal triggers and %d close buttons with HSOverlay", len(modalTriggers), len(modalCloseButtons))
+}
+
+// setupManualModalListeners provides simple modal toggle via [data-overlay] attributes per updated FlyonUI docs
+func setupManualModalListeners(doc dom.Document) {
+	// Find all elements with data-overlay attribute
+	triggers := doc.QuerySelectorAll("[data-overlay]")
+	for _, el := range triggers {
+		el.AddEventListener("click", false, func(event dom.Event) {
 			event.PreventDefault()
-			logutil.Log("Modal triggered")
-
-			// Find the target modal
-			modalId := trigger.GetAttribute("data-modal-target")
-			if modalId != "" {
-				modal := doc.GetElementByID(modalId)
-				if modal != nil {
-					modal.Class().Remove("hidden")
-					logutil.Log("Modal opened:", modalId)
-				}
+			// Get selector from data-overlay (e.g., "#demo-modal")
+			sel := el.GetAttribute("data-overlay")
+			if sel == "" {
+				return
+			}
+			// Query target modal by selector
+			target := doc.QuerySelector(sel)
+			if target == nil {
+				logutil.Logf("data-overlay target not found: %s", sel)
+				return
+			}
+			// Toggle hidden class
+			if target.Class().Contains("hidden") {
+				target.Class().Remove("hidden")
+				logutil.Logf("Opened modal: %s", sel)
+			} else {
+				target.Class().Add("hidden")
+				logutil.Logf("Closed modal: %s", sel)
 			}
 		})
 	}
-
-	// Setup modal close listeners
-	modalCloses := doc.QuerySelectorAll(".modal-close")
-	for _, closeBtn := range modalCloses {
-		closeBtn.AddEventListener("click", false, func(event dom.Event) {
-			event.PreventDefault()
-			logutil.Log("Modal close triggered")
-
-			// Find the parent modal
-			modal := closeBtn.Closest(".modal")
-			if modal != nil {
-				modal.Class().Add("hidden")
-				logutil.Log("Modal closed")
-			}
-		})
-	}
+	logutil.Logf("Set up %d [data-overlay] triggers", len(triggers))
 }
 
 func setupAlertListeners() {

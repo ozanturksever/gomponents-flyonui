@@ -1,116 +1,97 @@
 # Modal - FlyonUI
 
-## Complete List of Classes
-- **Core Modal Structure:**
-  - `.modal`: Main container for the modal and its backdrop.
-  - `.modal-box`: The visible container for the modal's content.
-  - `.modal-header`: Header section of the modal.
-  - `.modal-title`: Title within the header.
-  - `.modal-body`: Main content area of the modal.
-  - `.modal-footer`: Footer section for actions.
-  - `.modal-action`: Wrapper for action buttons in the footer.
-- **Sizing and Positioning:**
-  - `modal-sm`, `modal-md`, `modal-lg`, `modal-xl`, `modal-full`: For sizing the modal.
-  - `modal-middle`: Vertically centers the modal.
-  - `modal-bottom`: Positions the modal at the bottom of the screen.
-- **State & Behavior:**
-  - `modal-open`: Added to the `.modal` element to make it visible.
-  - `modal-trigger`: Class for buttons that open a modal.
-  - `modal-close`: Class for buttons that close a modal.
-- **Overlay (Backdrop):**
-  - `overlay`: Base class, often used with `.modal`.
-  - `overlay-open:opacity-100`: Controls the backdrop's visibility.
+Last synced: 2025-08-31 • Source: https://flyonui.com/docs/docs/overlays/modal
 
-## Variations and Sizes
+## Official Classes and Structure
+- Container:
+  - `overlay modal`: Root modal container with backdrop behavior.
+  - State utilities: `overlay-open:opacity-100`, `overlay-open:duration-300` (example transition utilities from docs).
+  - Visibility: `hidden` is commonly used so the modal starts hidden when controlled via `data-overlay`.
+- Structure inside the container:
+  - `modal-dialog`: Wrapper for the dialog panel.
+  - `modal-content`: Panel that holds header, body, and footer.
+  - `modal-header`: Header region.
+  - `modal-title`: Title element in header.
+  - `modal-body`: Scrollable content area.
+  - `modal-footer`: Action area (buttons, etc.).
+- Position variants:
+  - `modal-top-center` (default top-center positioning).
+  - `modal-middle` (centered in the viewport).
+- Triggers and close controls:
+  - Use `data-overlay="#<modal-id>"` on any element to open or close the modal with that ID.
 
-### Size Variants
-```html
-<!-- Default (Medium) -->
-<div class="modal-box">...</div>
-
-<!-- Small -->
-<div class="modal-box modal-sm">...</div>
-
-<!-- Large -->
-<div class="modal-box modal-lg">...</div>
-
-<!-- Extra Large -->
-<div class="modal-box modal-xl">...</div>
-```
-
-### Position Variants
-```html
-<!-- Vertically Centered -->
-<div class="modal modal-middle">...</div>
-
-<!-- At the bottom -->
-<div class="modal modal-bottom">...</div>
-```
+Accessibility best practices from docs examples:
+- Triggers include `aria-haspopup="dialog"`, `aria-expanded="false"`, and `aria-controls="<modal-id>"`.
+- Modal container includes `role="dialog"` and `tabindex="-1"`.
 
 ## HTML Examples
 
 ### Basic Modal
 ```html
-<!-- Trigger -->
-<button class="modal-trigger btn btn-primary" data-modal-target="demo-modal">Open Modal</button>
+<button type="button" class="btn btn-primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="basic-modal" data-overlay="#basic-modal">
+  Open modal
+</button>
 
-<!-- Modal Structure -->
-<div id="demo-modal" class="modal hidden">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Demo Modal</h3>
-    <p class="py-4">This is a demonstration modal.</p>
-    <div class="modal-action">
-      <button class="modal-close btn">Close</button>
+<div id="basic-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1">
+  <div class="modal-dialog overlay-open:opacity-100 overlay-open:duration-300">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Dialog Title</h3>
+        <button type="button" class="btn btn-text btn-circle btn-sm absolute end-3 top-3" aria-label="Close" data-overlay="#basic-modal">
+          <span class="icon-[tabler--x] size-4"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        This is some placeholder content to show the scrolling behavior for modals.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft btn-secondary" data-overlay="#basic-modal">Close</button>
+        <button type="button" class="btn btn-primary">Save changes</button>
+      </div>
     </div>
   </div>
 </div>
 ```
 
-### Confirmation Dialog
+### Middle Center Position
 ```html
-<!-- Trigger -->
-<button class="modal-trigger btn btn-warning" data-modal-target="confirm-modal">Confirm Dialog</button>
+<button type="button" class="btn btn-primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="middle-center-modal" data-overlay="#middle-center-modal">
+  Middle center
+</button>
 
-<!-- Modal Structure -->
-<div id="confirm-modal" class="modal hidden">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Confirm Action</h3>
-    <p class="py-4">Are you sure you want to proceed?</p>
-    <div class="modal-action flex gap-2">
-      <button class="modal-close btn btn-error">Cancel</button>
-      <button class="modal-close btn btn-success">Confirm</button>
+<div id="middle-center-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 modal-middle hidden" role="dialog" tabindex="-1">
+  <div class="modal-dialog overlay-open:opacity-100 overlay-open:duration-300">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Dialog Title</h3>
+        <button type="button" class="btn btn-text btn-circle btn-sm absolute end-3 top-3" aria-label="Close" data-overlay="#middle-center-modal">
+          <span class="icon-[tabler--x] size-4"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        This is some placeholder content to show the scrolling behavior for modals.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft btn-secondary" data-overlay="#middle-center-modal">Close</button>
+        <button type="button" class="btn btn-primary">Save changes</button>
+      </div>
     </div>
   </div>
 </div>
 ```
 
-## JavaScript Interaction API
-The modal component in FlyonUI is controlled via the `HSOverlay` JavaScript class.
-
-### Initialization
-The modal is typically initialized automatically via data attributes. To initialize manually:
-```javascript
-const modalElement = document.querySelector('#demo-modal');
-const modal = new HSOverlay(modalElement);
+## Configuration via Data Attributes
+- `data-overlay`: Primary attribute to control opening/closing. Its value should be the CSS selector for the modal element (e.g., `#basic-modal`). Apply it to triggers and close buttons.
+- `data-overlay-options`: Optional JSON configuration inline. Example:
+```html
+<button type="button" class="btn btn-primary" aria-haspopup="dialog" aria-expanded="false" aria-controls="demo-hidden-modal"
+  data-overlay="#demo-hidden-modal"
+  data-overlay-options='{ "hiddenClass": "hidden" }'>
+  Open modal
+</button>
 ```
+- Transition utilities like `overlay-open:*` classes can be added to the modal container and/or dialog to tune enter/leave animations as shown above.
 
-### Methods
-- `modal.open()`: Opens the modal.
-- `modal.close()`: Closes the modal.
-- `element.destroy()`: Destroys the modal instance, removing its functionality.
-- `HSOverlay.autoInit()`: Reinitializes all overlay components, including modals.
-
-### Events
-The documentation does not specify a public event API, but functionality is primarily controlled via data attributes and methods.
-
-## Configuration Options
-Configuration is handled through `data` attributes on the trigger and modal elements.
-
-### Triggers (`<button>`)
-- `data-modal-target="modal-id"`: Specifies the ID of the modal to open.
-
-### Modal (`<div class="modal">`)
-- `data-overlay-keyboard="false"`: Disables closing the modal with the Escape key.
-- `[--overlay-backdrop:false]`: Disables the modal backdrop via CSS custom property.
-- `[--body-scroll:true]`: Allows the body to scroll when the modal is open.
-- `[--has-autofocus:false]`: Disables autofocus on elements within the modal.
+## Notes
+- The following are NOT part of current FlyonUI Modal and should not be used: `.modal-box`, `.modal-trigger`, `.modal-close`, `data-modal-target`, `modal-open`, `modal-sm`, `modal-md`, `modal-lg`, `modal-xl`, `modal-full`, `modal-bottom`.
+- Use standard FlyonUI button classes (e.g., `btn`, `btn-primary`, etc.) for actions inside the footer.

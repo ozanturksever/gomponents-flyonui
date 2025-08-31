@@ -81,15 +81,15 @@ func TestFlyonUIDemo_ModalInteraction(t *testing.T) {
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
 		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
-		// Open demo modal
-		chromedp.WaitVisible("[data-modal-target='demo-modal']", chromedp.ByQuery),
-		testhelpers.Actions.ClickAndWait("[data-modal-target='demo-modal']", 1*time.Second),
+		// Open demo modal via data-overlay
+		chromedp.WaitVisible("[data-overlay='#demo-modal']", chromedp.ByQuery),
+		testhelpers.Actions.ClickAndWait("[data-overlay='#demo-modal']", 1*time.Second),
 
-		// Verify modal is visible
-		chromedp.WaitVisible("#demo-modal", chromedp.ByID),
+		// Verify modal is visible (check that hidden class is removed)
+		chromedp.WaitNotPresent("#demo-modal.hidden", chromedp.ByQuery),
 
-		// Close modal
-		testhelpers.Actions.ClickAndWait(".modal-close", 1*time.Second),
+		// Close modal using header close button (data-overlay)
+		testhelpers.Actions.ClickAndWait("#demo-modal [data-overlay='#demo-modal']", 1*time.Second),
 
 		// Wait for modal to close
 		chromedp.Sleep(500*time.Millisecond),
@@ -116,15 +116,15 @@ func TestFlyonUIDemo_ConfirmModalInteraction(t *testing.T) {
 		testhelpers.Actions.NavigateAndWaitForLoad(server.URL(), "body"),
 		testhelpers.Actions.WaitForWASMInit("#wasm-status", 15*time.Second),
 
-		// Open confirm modal
-		chromedp.WaitVisible("[data-modal-target='confirm-modal']", chromedp.ByQuery),
-		testhelpers.Actions.ClickAndWait("[data-modal-target='confirm-modal']", 1*time.Second),
+		// Open confirm modal via data-overlay
+		chromedp.WaitVisible("[data-overlay='#confirm-modal']", chromedp.ByQuery),
+		testhelpers.Actions.ClickAndWait("[data-overlay='#confirm-modal']", 1*time.Second),
 
-		// Verify modal is visible
-		chromedp.WaitVisible("#confirm-modal", chromedp.ByID),
+		// Verify modal is visible (check that hidden class is removed)
+		chromedp.WaitNotPresent("#confirm-modal.hidden", chromedp.ByQuery),
 
-		// Close modal using error button
-		testhelpers.Actions.ClickAndWait(".btn-error", 1*time.Second),
+		// Close modal using footer cancel button (data-overlay)
+		testhelpers.Actions.ClickAndWait("#confirm-modal [data-overlay='#confirm-modal']", 1*time.Second),
 
 		// Wait for modal to close
 		chromedp.Sleep(500*time.Millisecond),

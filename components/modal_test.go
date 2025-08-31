@@ -24,12 +24,12 @@ func TestNewModal(t *testing.T) {
 		t.Errorf("Expected 1 content item, got %d", len(modal.content))
 	}
 	
-	if len(modal.classes) != 1 || modal.classes[0] != "modal" {
-		t.Errorf("Expected classes ['modal'], got %v", modal.classes)
+	if len(modal.classes) != 0 {
+		t.Errorf("Expected no default custom classes, got %v", modal.classes)
 	}
 	
-	if modal.size != ModalSizeMedium {
-		t.Errorf("Expected default size ModalSizeMedium, got %v", modal.size)
+	if modal.size != ModalSizeDefault {
+		t.Errorf("Expected default size ModalSizeDefault, got %v", modal.size)
 	}
 	
 	if !modal.closable {
@@ -94,8 +94,8 @@ func TestModalComponent_WithSize(t *testing.T) {
 	modified := original.WithSize(ModalSizeLarge)
 	
 	// Original should be unchanged
-	if original.size != ModalSizeMedium {
-		t.Error("Original modal size should remain ModalSizeMedium")
+	if original.size != ModalSizeDefault {
+		t.Error("Original modal size should remain ModalSizeDefault")
 	}
 	
 	// Modified should have new size
@@ -232,7 +232,7 @@ func TestModalComponent_With(t *testing.T) {
 	}
 	
 	// Original should be unchanged
-	if original.size != ModalSizeMedium {
+	if original.size != ModalSizeDefault {
 		t.Error("Original modal size should remain unchanged")
 	}
 	if len(original.classes) != 1 || original.classes[0] != "modal" {
@@ -252,36 +252,38 @@ func TestModalComponent_Render(t *testing.T) {
 	
 	html := buf.String()
 	
-	// Check for modal structure
-	if !strings.Contains(html, `class="modal"`) {
-		t.Error("Modal should have 'modal' class")
-	}
-	
-	if !strings.Contains(html, `data-hs-overlay=""`) {
-		t.Error("Modal should have hs-overlay data attribute")
+	// Check for modal structure per updated docs
+	if !strings.Contains(html, `class="overlay modal`) {
+		t.Error("Modal should have 'overlay modal' classes")
 	}
 	
 	if !strings.Contains(html, `role="dialog"`) {
 		t.Error("Modal should have dialog role")
 	}
 	
-	if !strings.Contains(html, `aria-modal="true"`) {
-		t.Error("Modal should have aria-modal attribute")
+	if !strings.Contains(html, `tabindex="-1"`) {
+		t.Error("Modal should have tabindex -1 for accessibility")
 	}
 	
-	// Check for title
+	// Check for wrappers
+	if !strings.Contains(html, "modal-dialog") {
+		t.Error("Modal should include modal-dialog wrapper")
+	}
+	if !strings.Contains(html, "modal-content") {
+		t.Error("Modal should include modal-content wrapper")
+	}
+	
+	// Check for title and content
 	if !strings.Contains(html, "Test Modal") {
 		t.Error("Modal should contain the title")
 	}
-	
-	// Check for content
 	if !strings.Contains(html, "Modal content") {
 		t.Error("Modal should contain the content")
 	}
 	
 	// Check for close button (default closable)
-	if !strings.Contains(html, `data-hs-overlay-close=""`) {
-		t.Error("Modal should have close button when closable")
+	if !strings.Contains(html, `data-overlay="#`) {
+		t.Error("Close button should use data-overlay to target modal id")
 	}
 }
 
@@ -297,9 +299,9 @@ func TestModalComponent_RenderWithSize(t *testing.T) {
 	
 	html := buf.String()
 	
-	// Check for size class
-	if !strings.Contains(html, "modal-lg") {
-		t.Error("Modal should have size class")
+	// Size classes are deprecated in new modal structure; ensure not present
+	if strings.Contains(html, "modal-lg") {
+		t.Error("Modal should not include legacy size classes")
 	}
 }
 
@@ -315,14 +317,9 @@ func TestModalComponent_RenderNotClosable(t *testing.T) {
 	
 	html := buf.String()
 	
-	// Check that close button is not present
-	if strings.Contains(html, `data-hs-overlay-close=""`) {
+	// Check that close button is not present (data-overlay close should be absent in header)
+	if strings.Contains(html, `data-overlay="#`) {
 		t.Error("Modal should not have close button when not closable")
-	}
-	
-	// Check for keyboard disable attribute
-	if !strings.Contains(html, `data-hs-overlay-keyboard="false"`) {
-		t.Error("Modal should disable keyboard when not closable")
 	}
 }
 
@@ -406,8 +403,8 @@ func TestModalCloseAction(t *testing.T) {
 		t.Error("Close action should have secondary button class")
 	}
 	
-	if !strings.Contains(html, `data-hs-overlay-close=""`) {
-		t.Error("Close action should have close data attribute")
+	if !strings.Contains(html, `class="btn btn-secondary`) || !strings.Contains(html, "modal-close") {
+		t.Error("Close action should have secondary btn class and modal-close helper class")
 	}
 }
 
@@ -426,8 +423,8 @@ func TestModalComponent_Immutability(t *testing.T) {
 	if original.id != "" {
 		t.Error("Original ID should remain empty")
 	}
-	if original.size != ModalSizeMedium {
-		t.Error("Original size should remain ModalSizeMedium")
+	if original.size != ModalSizeDefault {
+		t.Error("Original size should remain ModalSizeDefault")
 	}
 	if !original.closable {
 		t.Error("Original closable should remain true")
@@ -438,8 +435,8 @@ func TestModalComponent_Immutability(t *testing.T) {
 	if original.open {
 		t.Error("Original open should remain false")
 	}
-	if len(original.classes) != 1 || original.classes[0] != "modal" {
-		t.Error("Original classes should remain unchanged")
+	if len(original.classes) != 0 {
+		t.Error("Original classes should remain empty by default")
 	}
 	
 	// Ensure modifications are applied to new instances

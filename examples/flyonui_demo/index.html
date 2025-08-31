@@ -63,31 +63,49 @@
         <section class="mb-12">
             <h2 class="text-2xl font-semibold mb-4">Modals</h2>
             <div class="flex gap-4">
-                <button class="modal-trigger btn btn-accent" data-modal-target="demo-modal">Open Modal</button>
-                <button class="modal-trigger btn btn-warning" data-modal-target="confirm-modal">Confirm Dialog</button>
+                <button type="button" class="btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="demo-modal" data-overlay="#demo-modal">Demo Modal</button>
+                <button type="button" class="btn btn-secondary" aria-haspopup="dialog" aria-expanded="false" aria-controls="confirm-modal" data-overlay="#confirm-modal">Confirm Dialog</button>
             </div>
             
-            <!-- Demo Modal -->
-            <div id="demo-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="modal-box bg-base-100 p-6 rounded-lg max-w-md w-full mx-4">
-                    <h3 class="font-bold text-lg mb-4">Demo Modal</h3>
-                    <p class="mb-4">This is a demonstration modal created with FlyonUI components and hydrated with WASM.</p>
-                    <div class="modal-action">
-                        <button class="modal-close btn btn-primary">Close</button>
-                    </div>
+            <!-- Modal Structures (updated to FlyonUI overlay modal) -->
+            <div id="demo-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 hidden" role="dialog" tabindex="-1">
+              <div class="modal-dialog overlay-open:opacity-100 overlay-open:duration-300">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h3 class="modal-title">Demo Modal</h3>
+                    <button type="button" class="btn btn-text btn-circle btn-sm absolute end-3 top-3" aria-label="Close" data-overlay="#demo-modal">
+                      <span class="icon-[tabler--x] size-4"></span>
+                    </button>
+                  </div>
+                  <div class="modal-body">
+                    This is a demo modal with FlyonUI styling.
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-primary">Save</button>
+                    <button type="button" class="btn btn-soft btn-secondary" data-overlay="#demo-modal">Cancel</button>
+                  </div>
                 </div>
+              </div>
             </div>
             
-            <!-- Confirm Modal -->
-            <div id="confirm-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="modal-box bg-base-100 p-6 rounded-lg max-w-md w-full mx-4">
-                    <h3 class="font-bold text-lg mb-4">Confirm Action</h3>
-                    <p class="mb-4">Are you sure you want to proceed with this action?</p>
-                    <div class="modal-action flex gap-2">
-                        <button class="modal-close btn btn-error">Cancel</button>
-                        <button class="modal-close btn btn-success">Confirm</button>
-                    </div>
+            <div id="confirm-modal" class="overlay modal overlay-open:opacity-100 overlay-open:duration-300 modal-middle hidden" role="dialog" tabindex="-1">
+              <div class="modal-dialog overlay-open:opacity-100 overlay-open:duration-300">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h3 class="modal-title">Confirm Action</h3>
+                    <button type="button" class="btn btn-text btn-circle btn-sm absolute end-3 top-3" aria-label="Close" data-overlay="#confirm-modal">
+                      <span class="icon-[tabler--x] size-4"></span>
+                    </button>
+                  </div>
+                  <div class="modal-body">
+                    Are you sure you want to proceed?
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-error">Delete</button>
+                    <button type="button" class="btn btn-soft btn-secondary" data-overlay="#confirm-modal">Cancel</button>
+                  </div>
                 </div>
+              </div>
             </div>
         </section>
 
